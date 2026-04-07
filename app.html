@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Blueprint Hub Operations</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --dark:#0F1117;--dark2:#1A1D27;--dark3:#23273A;
+  --yellow:#F5A623;--text:#E8EAF0;--muted:#8B90A0;--border:#2E3247;
+  --red:#E05252;--green:#4CAF7D;--blue:#5B8DEF;
+}
+body{font-family:'Inter',sans-serif;background:var(--dark);color:var(--text);font-size:14px;}
+
+/* ── LOGIN ── */
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--dark);}
+.login-box{background:var(--dark2);border:1px solid var(--border);border-radius:16px;padding:48px 40px;width:100%;max-width:400px;text-align:center;}
+.login-logo{font-size:1.6rem;font-weight:900;margin-bottom:8px;}.login-logo span{color:var(--yellow);}
+.login-sub{color:var(--muted);font-size:0.85rem;margin-bottom:32px;}
+.login-box input{width:100%;background:var(--dark3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-size:0.95rem;margin-bottom:12px;outline:none;}
+.login-box input:focus{border-color:var(--yellow);}
+.btn-yellow{background:var(--yellow);color:#000;border:none;padding:13px;width:100%;border-radius:8px;font-weight:800;font-size:0.95rem;cursor:pointer;transition:opacity 0.2s;}
+.btn-yellow:hover{opacity:0.85;}
+.login-hint{color:var(--muted);font-size:0.78rem;margin-top:16px;}
+
+/* ── APP SHELL ── */
+#app{display:none;height:100vh;overflow:hidden;flex-direction:column;}
+.topbar{background:var(--dark2);border-bottom:1px solid var(--border);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.topbar-logo{font-size:1.1rem;font-weight:900;}.topbar-logo span{color:var(--yellow);}
+.topbar-right{display:flex;align-items:center;gap:16px;}
+.topbar-right .username{color:var(--muted);font-size:0.85rem;}
+.btn-logout{background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.82rem;transition:border-color 0.2s;}
+.btn-logout:hover{border-color:var(--yellow);color:var(--text);}
+
+/* ── QUICK ENTRY ── */
+.quick-entry-bar{background:var(--dark2);border-top:1px solid var(--border);padding:12px 20px;display:flex;gap:10px;align-items:center;flex-shrink:0;}
+.quick-entry-bar input{flex:1;background:var(--dark3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:0.9rem;font-family:inherit;outline:none;}
+.quick-entry-bar input:focus{border-color:var(--yellow);}
+.quick-entry-bar input::placeholder{color:var(--muted);}
+.btn-quick{background:var(--yellow);color:#000;border:none;padding:10px 18px;border-radius:8px;font-weight:800;font-size:0.85rem;cursor:pointer;white-space:nowrap;transition:opacity 0.2s;}
+.btn-quick:hover{opacity:0.85;}
+.btn-mic{background:var(--dark3);border:1px solid var(--border);color:var(--muted);padding:10px 13px;border-radius:8px;cursor:pointer;font-size:1rem;transition:all 0.2s;}
+.btn-mic:hover{border-color:var(--yellow);color:var(--yellow);}
+.btn-mic.recording{background:rgba(224,82,82,0.15);border-color:var(--red);color:var(--red);}
+.quick-result{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--dark2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;max-width:500px;width:90%;z-index:500;display:none;box-shadow:0 8px 32px rgba(0,0,0,0.5);}
+.quick-result.show{display:block;}
+.quick-result-title{font-size:0.8rem;font-weight:700;color:var(--yellow);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;}
+.quick-result-content{font-size:0.88rem;line-height:1.5;}
+.quick-result-actions{display:flex;gap:8px;margin-top:12px;}
+.btn-confirm{background:var(--green);color:#000;border:none;padding:7px 16px;border-radius:6px;cursor:pointer;font-weight:700;font-size:0.82rem;}
+.btn-discard{background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:6px;cursor:pointer;font-size:0.82rem;}
+.quick-thinking{color:var(--muted);font-size:0.82rem;font-style:italic;}
+
+/* ── SUMMARIES ── */
+.summary-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+.btn-generate{background:var(--yellow);color:#000;border:none;padding:10px 20px;border-radius:8px;font-weight:800;font-size:0.85rem;cursor:pointer;transition:opacity 0.2s;}
+.btn-generate:hover{opacity:0.85;}
+.summaries-list{display:flex;flex-direction:column;gap:16px;}
+.summary-card{background:var(--dark2);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.summary-card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--dark3);}
+.summary-month-title{font-size:1rem;font-weight:800;}
+.summary-card-actions{display:flex;gap:8px;}
+.btn-export{background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:600;transition:all 0.15s;}
+.btn-export:hover{border-color:var(--yellow);color:var(--yellow);}
+.btn-delete-summary{background:transparent;border:1px solid transparent;color:var(--muted);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:0.78rem;transition:all 0.15s;}
+.btn-delete-summary:hover{color:var(--red);}
+.summary-body{padding:20px;}
+.summary-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px;}
+.summary-stat{background:var(--dark3);border-radius:10px;padding:14px;}
+.summary-stat-label{font-size:0.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}
+.summary-stat-value{font-size:1.5rem;font-weight:900;}
+.summary-stat-value.green{color:var(--green);}
+.summary-stat-value.yellow{color:var(--yellow);}
+.summary-stat-value.red{color:var(--red);}
+.summary-section{margin-top:14px;}
+.summary-section-title{font-size:0.8rem;font-weight:700;color:var(--yellow);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
+.summary-table{width:100%;border-collapse:collapse;font-size:0.82rem;}
+.summary-table th{color:var(--muted);text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);font-weight:600;font-size:0.75rem;}
+.summary-table td{padding:6px 8px;border-bottom:1px solid rgba(46,50,71,0.5);}
+.no-summaries{text-align:center;padding:60px 20px;color:var(--muted);}
+.no-summaries .big-icon{font-size:3rem;margin-bottom:12px;}
+.auto-badge{background:rgba(76,175,125,0.15);color:var(--green);font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:8px;}
+
+/* ── CREW NOTIFICATIONS ── */
+.crew-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:2000;align-items:center;justify-content:center;padding:20px;}
+.crew-modal-overlay.open{display:flex;}
+.crew-modal{background:var(--dark2);border:1px solid var(--border);border-radius:14px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;}
+.crew-modal-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.crew-modal-title{font-size:1rem;font-weight:800;}
+.crew-modal-body{padding:22px;}
+.crew-job-info{background:var(--dark3);border-radius:8px;padding:12px;margin-bottom:18px;font-size:0.85rem;}
+.crew-job-info strong{color:var(--yellow);}
+.crew-label{font-size:0.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;}
+.crew-member-list{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
+.crew-member-item{display:flex;align-items:center;gap:10px;background:var(--dark3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;cursor:pointer;transition:border-color 0.15s;}
+.crew-member-item:hover{border-color:var(--yellow);}
+.crew-member-item input[type=checkbox]{accent-color:var(--yellow);width:16px;height:16px;cursor:pointer;}
+.crew-member-name{font-weight:600;font-size:0.88rem;flex:1;}
+.crew-member-phone{color:var(--muted);font-size:0.8rem;}
+.crew-member-nophone{color:var(--red);font-size:0.75rem;font-style:italic;}
+.crew-msg-area{width:100%;background:var(--dark3);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text);font-size:0.88rem;font-family:inherit;resize:vertical;min-height:90px;outline:none;margin-bottom:18px;}
+.crew-msg-area:focus{border-color:var(--yellow);}
+.crew-templates{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+.crew-template-btn{background:var(--dark3);border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:20px;font-size:0.75rem;cursor:pointer;transition:all 0.15s;}
+.crew-template-btn:hover{border-color:var(--yellow);color:var(--yellow);}
+.crew-modal-footer{padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.crew-send-count{font-size:0.8rem;color:var(--muted);}
+.btn-crew-send{background:var(--yellow);color:#000;border:none;padding:10px 22px;border-radius:8px;font-weight:800;font-size:0.88rem;cursor:pointer;transition:opacity 0.2s;}
+.btn-crew-send:hover{opacity:0.85;}
+.btn-crew-cancel{background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 18px;border-radius:8px;cursor:pointer;font-size:0.88rem;}
+.btn-notify{background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 9px;border-radius:5px;cursor:pointer;font-size:0.78rem;margin-right:4px;transition:all 0.15s;}
+.btn-notify:hover{border-color:var(--blue);color:var(--blue);}
+
+/* ── CREW LOG (dashboard) ── */
+.crew-log-item{padding:8px 0;border-bottom:1px solid var(--border);font-size:0.82rem;}
+.crew-log-item:last-child{border-bottom:none;}
+.crew-log-meta{color:var(--muted);font-size:0.75rem;margin-top:3px;}
+
+/* ── SETTINGS TEAM MEMBER WITH PHONE ── */
+.settings-member-item{display:flex;align-items:center;gap:8px;background:var(--dark3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:6px;}
+.settings-member-name{font-weight:600;font-size:0.85rem;flex:1;}
+.settings-member-phone{color:var(--muted);font-size:0.78rem;min-width:110px;}
+.settings-member-phone input{background:var(--dark);border:1px solid var(--border);border-radius:5px;padding:3px 7px;color:var(--text);font-size:0.78rem;width:110px;outline:none;}
+.settings-member-phone input:focus{border-color:var(--yellow);}
+.settings-member-remove{color:var(--muted);cursor:pointer;font-size:0.9rem;padding:2px 6px;}.settings-member-remove:hover{color:var(--red);}
+
+.app-body{display:flex;flex:1;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+.sidebar{width:200px;background:var(--dark2);border-right:1px solid var(--border);padding:16px 8px;flex-shrink:0;overflow-y:auto;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;color:var(--muted);font-size:0.88rem;font-weight:500;transition:all 0.15s;margin-bottom:2px;}
+.nav-item:hover{background:var(--dark3);color:var(--text);}
+.nav-item.active{background:rgba(245,166,35,0.12);color:var(--yellow);}
+.nav-icon{font-size:1rem;width:20px;text-align:center;}
+
+/* ── MAIN CONTENT ── */
+.main{flex:1;overflow-y:auto;padding:24px;}
+.page{display:none;}.page.active{display:block;}
+.page-title{font-size:1.3rem;font-weight:800;margin-bottom:20px;}
+
+/* ── DASHBOARD ── */
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:28px;}
+.metric-card{background:var(--dark2);border:1px solid var(--border);border-radius:12px;padding:20px;transition:border-color 0.2s;}
+.metric-card:hover{border-color:var(--yellow);}
+.metric-label{font-size:0.78rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
+.metric-value{font-size:2rem;font-weight:900;line-height:1;}
+.metric-value.yellow{color:var(--yellow);}
+.metric-value.green{color:var(--green);}
+.metric-value.red{color:var(--red);}
+.dash-tables{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+@media(max-width:700px){.dash-tables{grid-template-columns:1fr;}}
+.dash-table-box{background:var(--dark2);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.dash-table-title{font-size:0.85rem;font-weight:700;margin-bottom:12px;color:var(--yellow);}
+
+/* ── TABLES ── */
+.table-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+.btn-add{background:var(--yellow);color:#000;border:none;padding:9px 18px;border-radius:7px;font-weight:700;font-size:0.85rem;cursor:pointer;transition:opacity 0.2s;}
+.btn-add:hover{opacity:0.85;}
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;}
+th{background:var(--dark3);padding:10px 12px;text-align:left;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);white-space:nowrap;}
+td{padding:10px 12px;border-top:1px solid var(--border);font-size:0.85rem;white-space:nowrap;}
+tr:hover td{background:rgba(255,255,255,0.02);}
+.empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
+.empty-icon{font-size:2.5rem;margin-bottom:12px;}
+.empty-state p{font-size:0.9rem;}
+
+/* ── BADGES ── */
+.badge{display:inline-block;padding:3px 8px;border-radius:20px;font-size:0.75rem;font-weight:700;}
+.badge-new{background:rgba(91,141,239,0.15);color:#5B8DEF;}
+.badge-won{background:rgba(76,175,125,0.15);color:#4CAF7D;}
+.badge-lost{background:rgba(224,82,82,0.15);color:#E05252;}
+.badge-contacted{background:rgba(245,166,35,0.15);color:#F5A623;}
+.badge-default{background:rgba(139,144,160,0.15);color:#8B90A0;}
+.badge-inprogress{background:rgba(91,141,239,0.15);color:#5B8DEF;}
+.badge-completed{background:rgba(76,175,125,0.15);color:#4CAF7D;}
+.badge-paid{background:rgba(76,175,125,0.15);color:#4CAF7D;}
+.badge-unpaid{background:rgba(245,166,35,0.15);color:#F5A623;}
+.badge-overdue{background:rgba(224,82,82,0.15);color:#E05252;}
+.badge-partial{background:rgba(91,141,239,0.15);color:#5B8DEF;}
+
+/* ── ACTION BUTTONS ── */
+.btn-edit{background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:5px;cursor:pointer;font-size:0.78rem;margin-right:4px;transition:all 0.15s;}
+.btn-edit:hover{border-color:var(--yellow);color:var(--yellow);}
+.btn-delete{background:transparent;border:1px solid transparent;color:var(--muted);padding:4px 10px;border-radius:5px;cursor:pointer;font-size:0.78rem;transition:all 0.15s;}
+.btn-delete:hover{border-color:var(--red);color:var(--red);}
+
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--dark2);border:1px solid var(--border);border-radius:14px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.modal-title{font-size:1rem;font-weight:700;}
+.modal-close{background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1;}
+.modal-close:hover{color:var(--text);}
+.modal-body{padding:24px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:500px){.form-grid{grid-template-columns:1fr;}}
+.form-group{display:flex;flex-direction:column;gap:6px;}
+.form-group.full{grid-column:1/-1;}
+.form-group label{font-size:0.8rem;font-weight:600;color:var(--muted);}
+.form-group input,.form-group select,.form-group textarea{background:var(--dark3);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-size:0.88rem;font-family:inherit;outline:none;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--yellow);}
+.form-group textarea{resize:vertical;min-height:70px;}
+.form-group select option{background:var(--dark3);}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;}
+.btn-cancel{background:transparent;border:1px solid var(--border);color:var(--muted);padding:9px 20px;border-radius:7px;cursor:pointer;font-size:0.88rem;font-weight:600;}
+.btn-cancel:hover{border-color:var(--text);color:var(--text);}
+.btn-save{background:var(--yellow);color:#000;border:none;padding:9px 20px;border-radius:7px;cursor:pointer;font-size:0.88rem;font-weight:700;}
+.btn-save:hover{opacity:0.85;}
+
+/* ── SETTINGS ── */
+.settings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;}
+.settings-card{background:var(--dark2);border:1px solid var(--border);border-radius:12px;padding:20px;}
+.settings-card h3{font-size:0.85rem;font-weight:700;margin-bottom:14px;color:var(--yellow);}
+.settings-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+.settings-tag{background:var(--dark3);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:0.78rem;display:flex;align-items:center;gap:6px;}
+.tag-remove{cursor:pointer;color:var(--muted);font-size:0.9rem;line-height:1;}.tag-remove:hover{color:var(--red);}
+.settings-add{display:flex;gap:8px;}
+.settings-add input{flex:1;background:var(--dark3);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:0.82rem;outline:none;}
+.settings-add input:focus{border-color:var(--yellow);}
+.settings-add button{background:var(--yellow);color:#000;border:none;padding:7px 12px;border-radius:6px;cursor:pointer;font-weight:700;font-size:0.82rem;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">Blueprint<span>Hub</span></div>
+    <div class="login-sub">Operations Management System</div>
+
+    <!-- Sign In Panel -->
+    <div id="panel-signin">
+      <input type="email" id="login-email" placeholder="Email address"/>
+      <input type="password" id="login-pass" placeholder="Password"/>
+      <div id="login-error" style="color:var(--red);font-size:0.82rem;margin-bottom:10px;display:none;"></div>
+      <button class="btn-yellow" onclick="doLogin()">Sign In</button>
+      <div style="margin-top:14px;display:flex;justify-content:space-between;">
+        <span style="color:var(--muted);font-size:0.8rem;cursor:pointer;" onclick="showPanel('signup')">Create account →</span>
+        <span style="color:var(--muted);font-size:0.8rem;cursor:pointer;" onclick="showPanel('forgot')">Forgot password?</span>
+      </div>
+    </div>
+
+    <!-- Sign Up Panel -->
+    <div id="panel-signup" style="display:none;">
+      <div style="font-size:0.95rem;font-weight:700;margin-bottom:16px;">Create your account</div>
+      <input type="text" id="signup-biz" placeholder="Business name"/>
+      <input type="email" id="signup-email" placeholder="Email address"/>
+      <input type="password" id="signup-pass" placeholder="Password (min 6 characters)"/>
+      <div id="signup-error" style="color:var(--red);font-size:0.82rem;margin-bottom:10px;display:none;"></div>
+      <button class="btn-yellow" onclick="doSignup()">Create Account</button>
+      <div style="margin-top:14px;text-align:center;">
+        <span style="color:var(--muted);font-size:0.8rem;cursor:pointer;" onclick="showPanel('signin')">← Back to sign in</span>
+      </div>
+    </div>
+
+    <!-- Forgot Password Panel -->
+    <div id="panel-forgot" style="display:none;">
+      <div style="font-size:0.95rem;font-weight:700;margin-bottom:8px;">Reset password</div>
+      <div style="color:var(--muted);font-size:0.82rem;margin-bottom:16px;">We'll send a reset link to your email.</div>
+      <input type="email" id="forgot-email" placeholder="Email address"/>
+      <div id="forgot-msg" style="font-size:0.82rem;margin-bottom:10px;display:none;"></div>
+      <button class="btn-yellow" onclick="doForgot()">Send Reset Link</button>
+      <div style="margin-top:14px;text-align:center;">
+        <span style="color:var(--muted);font-size:0.8rem;cursor:pointer;" onclick="showPanel('signin')">← Back to sign in</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-logo">Blueprint<span>Hub</span> <span style="color:var(--muted);font-size:0.75rem;font-weight:500;">Operations</span></div>
+    <div class="topbar-right">
+      <span class="username" id="topbar-user">👤</span>
+      <button class="btn-logout" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="nav-item active" onclick="showPage('dashboard',this)"><span class="nav-icon">📊</span>Dashboard</div>
+      <div class="nav-item" onclick="showPage('leads',this)"><span class="nav-icon">📋</span>Leads</div>
+      <div class="nav-item" onclick="showPage('estimates',this)"><span class="nav-icon">📐</span>Estimates</div>
+      <div class="nav-item" onclick="showPage('jobs',this)"><span class="nav-icon">🏗️</span>Jobs</div>
+      <div class="nav-item" onclick="showPage('invoices',this)"><span class="nav-icon">🧾</span>Invoices</div>
+      <div class="nav-item" onclick="showPage('followups',this)"><span class="nav-icon">🔔</span>Follow-Ups</div>
+      <div class="nav-item" onclick="showPage('clients',this)"><span class="nav-icon">👥</span>Clients</div>
+      <div class="nav-item" onclick="showPage('summaries',this)"><span class="nav-icon">📅</span>Summaries</div>
+      <div class="nav-item" onclick="showPage('settings',this)"><span class="nav-icon">⚙️</span>Settings</div>
+    </div>
+    <div class="main">
+      <!-- DASHBOARD -->
+      <div id="page-dashboard" class="page active">
+        <div class="page-title">Dashboard</div>
+        <div class="metrics-grid" id="metrics-grid"></div>
+        <div class="dash-tables">
+          <div class="dash-table-box">
+            <div class="dash-table-title">🔔 Today's Follow-Ups</div>
+            <div id="dash-followups"></div>
+          </div>
+          <div class="dash-table-box">
+            <div class="dash-table-title">⚠️ Overdue Invoices</div>
+            <div id="dash-overdue"></div>
+          </div>
+        </div>
+        <div class="dash-table-box" style="margin-top:20px;">
+          <div class="dash-table-title" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>📲 Recent Crew Notifications</span>
+            <span style="color:var(--muted);font-size:0.75rem;font-weight:400;">Last 10</span>
+          </div>
+          <div id="dash-crew-log"></div>
+        </div>
+      </div>
+      <!-- LEADS -->
+      <div id="page-leads" class="page">
+        <div class="table-header">
+          <div class="page-title" style="margin:0">Leads</div>
+          <button class="btn-add" onclick="openModal('lead')">+ Add Lead</button>
+        </div>
+        <div class="table-wrap"><table id="leads-table"><thead><tr><th>ID</th><th>Date</th><th>Name</th><th>Phone</th><th>Service</th><th>Source</th><th>Status</th><th>Follow-Up</th><th>Value</th><th>Actions</th></tr></thead><tbody id="leads-tbody"></tbody></table></div>
+      </div>
+      <!-- ESTIMATES -->
+      <div id="page-estimates" class="page">
+        <div class="table-header">
+          <div class="page-title" style="margin:0">Estimates</div>
+          <button class="btn-add" onclick="openModal('estimate')">+ Add Estimate</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Date</th><th>Client</th><th>Service</th><th>Amount</th><th>Status</th><th>Follow-Up</th><th>Actions</th></tr></thead><tbody id="estimates-tbody"></tbody></table></div>
+      </div>
+      <!-- JOBS -->
+      <div id="page-jobs" class="page">
+        <div class="table-header">
+          <div class="page-title" style="margin:0">Jobs</div>
+          <button class="btn-add" onclick="openModal('job')">+ Add Job</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Client</th><th>Service</th><th>Value</th><th>Status</th><th>Start</th><th>End</th><th>Assigned</th><th>Priority</th><th>Actions</th></tr></thead><tbody id="jobs-tbody"></tbody></table></div>
+      </div>
+      <!-- INVOICES -->
+      <div id="page-invoices" class="page">
+        <div class="table-header">
+          <div class="page-title" style="margin:0">Invoices</div>
+          <button class="btn-add" onclick="openModal('invoice')">+ Add Invoice</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Client</th><th>Amount</th><th>Sent</th><th>Due</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody id="invoices-tbody"></tbody></table></div>
+      </div>
+      <!-- FOLLOW-UPS -->
+      <div id="page-followups" class="page">
+        <div class="table-header">
+          <div class="page-title" style="margin:0">Follow-Ups</div>
+          <button class="btn-add" onclick="openModal('followup')">+ Add Follow-Up</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Type</th><th>Name</th><th>Reason</th><th>Due Date</th><th>Status</th><th>Owner</th><th>Actions</th></tr></thead><tbody id="followups-tbody"></tbody></table></div>
+      </div>
+      <!-- CLIENTS -->
+      <div id="page-clients" class="page">
+        <div class="table-header">
+          <div class="page-title" style="margin:0">Clients</div>
+          <button class="btn-add" onclick="openModal('client')">+ Add Client</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Email</th><th>Service</th><th>Status</th><th>Last Job</th><th>Actions</th></tr></thead><tbody id="clients-tbody"></tbody></table></div>
+      </div>
+      <!-- SUMMARIES -->
+      <div id="page-summaries" class="page">
+        <div class="summary-header">
+          <div class="page-title" style="margin:0">Monthly Summaries</div>
+          <button class="btn-generate" onclick="generateSummary(false)">📅 Generate This Month's Summary</button>
+        </div>
+        <div id="summaries-list"></div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div id="page-settings" class="page">
+        <div class="page-title">Settings</div>
+        <div class="settings-grid" id="settings-grid"></div>
+      </div>
+    </div>
+  </div>
+  <!-- QUICK ENTRY BAR -->
+  <div class="quick-entry-bar">
+    <button class="btn-mic" id="mic-btn" onclick="toggleMic()" title="Voice input">🎤</button>
+    <input type="text" id="quick-input" placeholder='Try: "New lead John Smith, roofer, called from Google, 555-1234" or "Job done for Maria, invoice $4500"' onkeydown="if(event.key==='Enter')processQuickEntry()"/>
+    <button class="btn-quick" onclick="processQuickEntry()">⚡ Quick Entry</button>
+  </div>
+</div>
+
+<!-- QUICK RESULT POPUP -->
+<div class="quick-result" id="quick-result">
+  <div class="quick-result-title">⚡ Quick Entry Preview</div>
+  <div class="quick-result-content" id="quick-result-content"></div>
+  <div class="quick-result-actions">
+    <button class="btn-confirm" onclick="confirmQuickEntry()">✓ Save It</button>
+    <button class="btn-discard" onclick="discardQuickEntry()">✕ Discard</button>
+  </div>
+</div>
+
+<!-- CREW NOTIFICATION MODAL -->
+<div class="crew-modal-overlay" id="crew-modal-overlay">
+  <div class="crew-modal">
+    <div class="crew-modal-header">
+      <div class="crew-modal-title">📲 Notify Crew</div>
+      <button class="modal-close" onclick="closeCrewModal()">✕</button>
+    </div>
+    <div class="crew-modal-body">
+      <div class="crew-job-info" id="crew-job-info"></div>
+      <div class="crew-label">Select crew members to notify:</div>
+      <div class="crew-member-list" id="crew-member-list"></div>
+      <div class="crew-label">Quick message templates:</div>
+      <div class="crew-templates" id="crew-templates"></div>
+      <div class="crew-label">Message:</div>
+      <textarea class="crew-msg-area" id="crew-msg" placeholder="Type your message to the crew..."></textarea>
+    </div>
+    <div class="crew-modal-footer">
+      <span class="crew-send-count" id="crew-send-count">0 recipients selected</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-crew-cancel" onclick="closeCrewModal()">Cancel</button>
+        <button class="btn-crew-send" onclick="sendCrewNotification()">📲 Send Text</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Add</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── SUPABASE INIT ─────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://tsltxrutoynlvsdyljtm.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_RWsTh3q2y9cbZQMN2LPv5Q_A3w7eCXV';
+const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── DATA ──────────────────────────────────────────────────────────────────────
+const DEFAULT_DATA = {
+  leads:[],estimates:[],jobs:[],invoices:[],followups:[],clients:[],summaries:[],crewLog:[],
+  settings:{
+    businessName:'',
+    leadStatuses:['New','Contacted','Estimate Scheduled','Estimate Sent','Won','Lost'],
+    leadSources:['Phone','Text','Website','Facebook','Instagram','Google','Referral','Yard Sign','Repeat Customer','Other'],
+    serviceTypes:['Concrete','Excavation','Landscaping','Roofing','HVAC','Plumbing','Electrical','Remodeling','Pest Control','Pressure Washing','Other'],
+    estimateStatuses:['Draft','Sent','Pending','Approved','Rejected'],
+    jobStatuses:['Scheduled','In Progress','Waiting','Completed','Invoiced','Paid'],
+    invoiceStatuses:['Unpaid','Partial','Paid','Overdue'],
+    clientStatuses:['Active','Inactive'],
+    priorityLevels:['Low','Medium','High'],
+    followUpStatuses:['Open','Done'],
+    teamMembers:['Owner','Admin','Office Manager','Estimator','Crew Lead'],
+    teamMemberPhones:{},
+  }
+};
+
+let db = JSON.parse(JSON.stringify(DEFAULT_DATA));
+let currentUser = null;
+let editingId = null, editingType = null;
+let saveTimeout = null;
+
+// Cloud save — debounced so we don't hammer Supabase on every keystroke
+async function save() {
+  if(!currentUser) return;
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    try {
+      const { error } = await _supa
+        .from('user_data')
+        .upsert({ user_id: currentUser.id, data: db, updated_at: new Date().toISOString() },
+                 { onConflict: 'user_id' });
+      if(error) console.error('Save error:', error.message);
+    } catch(e) { console.error('Save failed:', e); }
+  }, 800);
+}
+
+async function loadUserData() {
+  try {
+    const { data, error } = await _supa
+      .from('user_data')
+      .select('data')
+      .eq('user_id', currentUser.id)
+      .single();
+    if(data && data.data) {
+      // Merge with defaults to ensure new keys exist
+      db = Object.assign(JSON.parse(JSON.stringify(DEFAULT_DATA)), data.data);
+      if(!db.settings.teamMemberPhones) db.settings.teamMemberPhones = {};
+    }
+  } catch(e) { /* first time user — use defaults */ }
+}
+
+function genId(prefix,arr){
+  let max=0;
+  arr.forEach(r=>{const n=parseInt((r.id||'').replace(/\D/g,''));if(n>max)max=n;});
+  return prefix+(String(max+1).padStart(3,'0'));
+}
+function today(){return new Date().toISOString().split('T')[0];}
+function fmt(d){if(!d)return'—';const p=d.split('-');return p.length===3?`${p[1]}/${p[2]}/${p[0]}`:d;}
+function money(v){return v?'$'+Number(v).toLocaleString():'—';}
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+function showPanel(name) {
+  ['signin','signup','forgot'].forEach(p => {
+    document.getElementById('panel-'+p).style.display = p===name?'block':'none';
+  });
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display='none';
+  if(!email||!pass){ errEl.textContent='Please enter email and password.'; errEl.style.display='block'; return; }
+  const { data, error } = await _supa.auth.signInWithPassword({ email, password: pass });
+  if(error){ errEl.textContent = error.message; errEl.style.display='block'; return; }
+  await onSignedIn(data.user);
+}
+
+async function doSignup() {
+  const biz   = document.getElementById('signup-biz').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const pass  = document.getElementById('signup-pass').value;
+  const errEl = document.getElementById('signup-error');
+  errEl.style.display='none';
+  if(!email||!pass){ errEl.textContent='Email and password are required.'; errEl.style.display='block'; return; }
+  if(pass.length < 6){ errEl.textContent='Password must be at least 6 characters.'; errEl.style.display='block'; return; }
+  const { data, error } = await _supa.auth.signUp({ email, password: pass });
+  if(error){ errEl.textContent = error.message; errEl.style.display='block'; return; }
+  if(biz) db.settings.businessName = biz;
+  await onSignedIn(data.user);
+}
+
+async function doForgot() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const msgEl = document.getElementById('forgot-msg');
+  if(!email){ msgEl.style.color='var(--red)'; msgEl.textContent='Enter your email.'; msgEl.style.display='block'; return; }
+  const { error } = await _supa.auth.resetPasswordForEmail(email);
+  if(error){ msgEl.style.color='var(--red)'; msgEl.textContent=error.message; }
+  else { msgEl.style.color='var(--green)'; msgEl.textContent='Reset link sent! Check your email.'; }
+  msgEl.style.display='block';
+}
+
+async function doLogout() {
+  await _supa.auth.signOut();
+  currentUser = null;
+  db = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  showPanel('signin');
+}
+
+async function onSignedIn(user) {
+  currentUser = user;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  const email = user.email || '';
+  document.getElementById('topbar-user').textContent = '👤 ' + (email.split('@')[0]);
+  await loadUserData();
+  renderAll();
+  checkAutoSummary();
+}
+
+// Check existing session on load
+(async () => {
+  const { data: { session } } = await _supa.auth.getSession();
+  if(session && session.user) {
+    await onSignedIn(session.user);
+  }
+})();
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────────
+function showPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  el.classList.add('active');
+  render(name);
+}
+
+// ── BADGE ─────────────────────────────────────────────────────────────────────
+function badge(val){
+  if(!val)return'—';
+  const v=val.toLowerCase().replace(/\s/g,'');
+  const map={new:'badge-new',won:'badge-won',lost:'badge-lost',contacted:'badge-contacted',
+    inprogress:'badge-inprogress',completed:'badge-completed',paid:'badge-paid',
+    unpaid:'badge-unpaid',overdue:'badge-overdue',partial:'badge-partial'};
+  const cls=map[v]||'badge-default';
+  return`<span class="badge ${cls}">${val}</span>`;
+}
+
+function emptyState(msg){return`<div class="empty-state"><div class="empty-icon">📂</div><p>${msg}</p></div>`;}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function renderDashboard(){
+  const now=today();
+  const thisMonth=now.substring(0,7);
+  const leads=db.leads;
+  const estimates=db.estimates;
+  const jobs=db.jobs;
+  const invoices=db.invoices;
+  const fups=db.followups;
+
+  const openLeads=leads.filter(l=>l.status!=='Won'&&l.status!=='Lost').length;
+  const followUpDue=leads.filter(l=>l.followUpDate&&l.followUpDate<=now&&l.status!=='Won'&&l.status!=='Lost').length;
+  const pendingEst=estimates.filter(e=>['Draft','Sent','Pending'].includes(e.status)).length;
+  const activeJobs=jobs.filter(j=>['Scheduled','In Progress','Waiting'].includes(j.status)).length;
+  const readyInvoice=jobs.filter(j=>j.status==='Completed').length;
+  const unpaidInv=invoices.filter(i=>i.autoStatus==='Unpaid'||i.status==='Unpaid').length;
+  const overdueInv=invoices.filter(i=>calcAutoStatus(i)==='Overdue').length;
+  const revMonth=invoices.filter(i=>i.dateSent&&i.dateSent.startsWith(thisMonth)).reduce((s,i)=>s+Number(i.amount||0),0);
+  const cashMonth=invoices.filter(i=>i.paymentDate&&i.paymentDate.startsWith(thisMonth)).reduce((s,i)=>s+Number(i.amountPaid||0),0);
+
+  const metrics=[
+    {label:'Open Leads',val:openLeads,cls:'yellow'},
+    {label:'Leads Due Follow-Up',val:followUpDue,cls:'red'},
+    {label:'Pending Estimates',val:pendingEst,cls:'yellow'},
+    {label:'Active Jobs',val:activeJobs,cls:'blue'},
+    {label:'Ready to Invoice',val:readyInvoice,cls:'yellow'},
+    {label:'Unpaid Invoices',val:unpaidInv,cls:'red'},
+    {label:'Overdue Invoices',val:overdueInv,cls:'red'},
+    {label:'Revenue This Month',val:'$'+revMonth.toLocaleString(),cls:'green'},
+    {label:'Cash Collected',val:'$'+cashMonth.toLocaleString(),cls:'green'},
+  ];
+
+  document.getElementById('metrics-grid').innerHTML=metrics.map(m=>`
+    <div class="metric-card">
+      <div class="metric-label">${m.label}</div>
+      <div class="metric-value ${m.cls}">${m.val}</div>
+    </div>`).join('');
+
+  // Today's follow-ups
+  const todayFups=fups.filter(f=>f.dueDate===now&&f.status==='Open');
+  document.getElementById('dash-followups').innerHTML=todayFups.length?
+    todayFups.map(f=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.82rem;"><strong>${f.name||'—'}</strong> — ${f.reason||'—'}</div>`).join(''):
+    `<div style="color:var(--muted);font-size:0.82rem;padding:8px 0;">No follow-ups today 🎉</div>`;
+
+  // Overdue invoices
+  const overdueList=invoices.filter(i=>calcAutoStatus(i)==='Overdue');
+  document.getElementById('dash-overdue').innerHTML=overdueList.length?
+    overdueList.map(i=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.82rem;display:flex;justify-content:space-between;"><span>${i.clientName||'—'}</span><span style="color:var(--red);">${money(i.amount)}</span></div>`).join(''):
+    `<div style="color:var(--muted);font-size:0.82rem;padding:8px 0;">No overdue invoices 🎉</div>`;
+
+  renderCrewLog();
+}
+
+// ── RENDERS ───────────────────────────────────────────────────────────────────
+function calcAutoStatus(inv){
+  const paid=Number(inv.amountPaid||0);
+  const amt=Number(inv.amount||0);
+  if(paid>=amt&&amt>0)return'Paid';
+  if(paid>0)return'Partial';
+  if(inv.dueDate&&inv.dueDate<today())return'Overdue';
+  return'Unpaid';
+}
+
+function renderLeads(){
+  const tbody=document.getElementById('leads-tbody');
+  if(!db.leads.length){tbody.innerHTML=`<tr><td colspan="10">${emptyState('No leads yet. Add your first lead!')}</td></tr>`;return;}
+  tbody.innerHTML=db.leads.map(l=>`<tr>
+    <td>${l.id}</td><td>${fmt(l.dateAdded)}</td>
+    <td><strong>${l.firstName||''} ${l.lastName||''}</strong></td>
+    <td>${l.phone||'—'}</td><td>${l.serviceType||'—'}</td>
+    <td>${l.source||'—'}</td><td>${badge(l.status)}</td>
+    <td>${fmt(l.followUpDate)}</td><td>${money(l.value)}</td>
+    <td><button class="btn-edit" onclick="openModal('lead','${l.id}')">Edit</button><button class="btn-delete" onclick="deleteRecord('leads','${l.id}')">Delete</button></td>
+  </tr>`).join('');
+}
+
+function renderEstimates(){
+  const tbody=document.getElementById('estimates-tbody');
+  if(!db.estimates.length){tbody.innerHTML=`<tr><td colspan="8">${emptyState('No estimates yet.')}</td></tr>`;return;}
+  tbody.innerHTML=db.estimates.map(e=>`<tr>
+    <td>${e.id}</td><td>${fmt(e.dateCreated)}</td>
+    <td>${e.clientName||'—'}</td><td>${e.serviceType||'—'}</td>
+    <td>${money(e.amount)}</td><td>${badge(e.status)}</td>
+    <td>${fmt(e.followUpDate)}</td>
+    <td><button class="btn-edit" onclick="openModal('estimate','${e.id}')">Edit</button><button class="btn-delete" onclick="deleteRecord('estimates','${e.id}')">Delete</button></td>
+  </tr>`).join('');
+}
+
+function renderJobs(){
+  const tbody=document.getElementById('jobs-tbody');
+  if(!db.jobs.length){tbody.innerHTML=`<tr><td colspan="10">${emptyState('No jobs yet.')}</td></tr>`;return;}
+  tbody.innerHTML=db.jobs.map(j=>`<tr>
+    <td>${j.id}</td><td>${j.clientName||'—'}</td>
+    <td>${j.serviceType||'—'}</td><td>${money(j.value)}</td>
+    <td>${badge(j.status)}</td><td>${fmt(j.startDate)}</td>
+    <td>${fmt(j.endDate)}</td><td>${j.assignedTo||'—'}</td>
+    <td>${badge(j.priority)}</td>
+    <td><button class="btn-notify" onclick="openCrewModal('${j.id}')">📲</button><button class="btn-edit" onclick="openModal('job','${j.id}')">Edit</button><button class="btn-delete" onclick="deleteRecord('jobs','${j.id}')">Delete</button></td>
+  </tr>`).join('');
+}
+
+function renderInvoices(){
+  const tbody=document.getElementById('invoices-tbody');
+  if(!db.invoices.length){tbody.innerHTML=`<tr><td colspan="9">${emptyState('No invoices yet.')}</td></tr>`;return;}
+  tbody.innerHTML=db.invoices.map(i=>{
+    const auto=calcAutoStatus(i);
+    const balance=Math.max(0,Number(i.amount||0)-Number(i.amountPaid||0));
+    return`<tr>
+      <td>${i.id}</td><td>${i.clientName||'—'}</td>
+      <td>${money(i.amount)}</td><td>${fmt(i.dateSent)}</td>
+      <td>${fmt(i.dueDate)}</td><td>${money(i.amountPaid)}</td>
+      <td>${money(balance)}</td><td>${badge(auto)}</td>
+      <td><button class="btn-edit" onclick="openModal('invoice','${i.id}')">Edit</button><button class="btn-delete" onclick="deleteRecord('invoices','${i.id}')">Delete</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderFollowups(){
+  const tbody=document.getElementById('followups-tbody');
+  if(!db.followups.length){tbody.innerHTML=`<tr><td colspan="8">${emptyState('No follow-ups yet.')}</td></tr>`;return;}
+  tbody.innerHTML=db.followups.map(f=>`<tr>
+    <td>${f.id}</td><td>${f.relatedType||'—'}</td>
+    <td>${f.name||'—'}</td><td>${f.reason||'—'}</td>
+    <td>${fmt(f.dueDate)}</td><td>${badge(f.status)}</td>
+    <td>${f.owner||'—'}</td>
+    <td><button class="btn-edit" onclick="openModal('followup','${f.id}')">Edit</button><button class="btn-delete" onclick="deleteRecord('followups','${f.id}')">Delete</button></td>
+  </tr>`).join('');
+}
+
+function renderClients(){
+  const tbody=document.getElementById('clients-tbody');
+  if(!db.clients.length){tbody.innerHTML=`<tr><td colspan="8">${emptyState('No clients yet.')}</td></tr>`;return;}
+  tbody.innerHTML=db.clients.map(c=>`<tr>
+    <td>${c.id}</td><td><strong>${c.name||'—'}</strong></td>
+    <td>${c.phone||'—'}</td><td>${c.email||'—'}</td>
+    <td>${c.serviceType||'—'}</td><td>${badge(c.status)}</td>
+    <td>${fmt(c.lastJobDate)}</td>
+    <td><button class="btn-edit" onclick="openModal('client','${c.id}')">Edit</button><button class="btn-delete" onclick="deleteRecord('clients','${c.id}')">Delete</button></td>
+  </tr>`).join('');
+}
+
+function renderSettings(){
+  const s=db.settings;
+  // Ensure teamMemberPhones exists
+  if(!s.teamMemberPhones) s.teamMemberPhones={};
+
+  const sections=[
+    {key:'leadStatuses',label:'Lead Statuses'},
+    {key:'leadSources',label:'Lead Sources'},
+    {key:'serviceTypes',label:'Service Types'},
+    {key:'estimateStatuses',label:'Estimate Statuses'},
+    {key:'jobStatuses',label:'Job Statuses'},
+    {key:'invoiceStatuses',label:'Invoice Statuses'},
+    {key:'clientStatuses',label:'Client Statuses'},
+    {key:'priorityLevels',label:'Priority Levels'},
+    {key:'followUpStatuses',label:'Follow-Up Statuses'},
+  ];
+
+  // Team Members section (special — includes phone numbers)
+  const teamSection = `<div class="settings-card" style="grid-column:1/-1;">
+    <h3>👥 Team Members & Phone Numbers</h3>
+    <div id="team-members-list">
+      ${(s.teamMembers||[]).map(name=>`
+        <div class="settings-member-item">
+          <span class="settings-member-name">${name}</span>
+          <div class="settings-member-phone">
+            <input type="tel" placeholder="555-000-0000" value="${s.teamMemberPhones[name]||''}"
+              onchange="updateMemberPhone('${name}',this.value)" onblur="updateMemberPhone('${name}',this.value)"/>
+          </div>
+          <span class="settings-member-remove" onclick="removeMember('${name}')">✕</span>
+        </div>`).join('')}
+    </div>
+    <div class="settings-add" style="margin-top:10px;">
+      <input type="text" id="input-teamMembers" placeholder="Add team member name..." onkeydown="if(event.key==='Enter')addMember()"/>
+      <button onclick="addMember()">+</button>
+    </div>
+    <div style="color:var(--muted);font-size:0.75rem;margin-top:10px;">📱 Add phone numbers to enable crew text notifications</div>
+  </div>`;
+
+  document.getElementById('settings-grid').innerHTML = teamSection + sections.map(sec=>`
+    <div class="settings-card">
+      <h3>${sec.label}</h3>
+      <div class="settings-tags" id="tags-${sec.key}">
+        ${(s[sec.key]||[]).map(v=>`<div class="settings-tag">${v}<span class="tag-remove" onclick="removeTag('${sec.key}','${v}')">✕</span></div>`).join('')}
+      </div>
+      <div class="settings-add">
+        <input type="text" id="input-${sec.key}" placeholder="Add new..." onkeydown="if(event.key==='Enter')addTag('${sec.key}')"/>
+        <button onclick="addTag('${sec.key}')">+</button>
+      </div>
+    </div>`).join('');
+}
+
+function updateMemberPhone(name, phone){
+  if(!db.settings.teamMemberPhones) db.settings.teamMemberPhones={};
+  db.settings.teamMemberPhones[name] = phone.trim();
+  save();
+}
+function addMember(){
+  const inp=document.getElementById('input-teamMembers');
+  const val=inp.value.trim();
+  if(!val)return;
+  if(!db.settings.teamMembers.includes(val)){db.settings.teamMembers.push(val);save();renderSettings();}
+  inp.value='';
+}
+function removeMember(name){
+  db.settings.teamMembers=db.settings.teamMembers.filter(v=>v!==name);
+  if(db.settings.teamMemberPhones) delete db.settings.teamMemberPhones[name];
+  save();renderSettings();
+}
+function addTag(key){
+  const inp=document.getElementById('input-'+key);
+  const val=inp.value.trim();
+  if(!val)return;
+  if(!db.settings[key].includes(val)){db.settings[key].push(val);save();renderSettings();}
+  inp.value='';
+}
+function removeTag(key,val){
+  db.settings[key]=db.settings[key].filter(v=>v!==val);
+  save();renderSettings();
+}
+
+function render(page){
+  if(page==='dashboard')renderDashboard();
+  else if(page==='leads')renderLeads();
+  else if(page==='estimates')renderEstimates();
+  else if(page==='jobs')renderJobs();
+  else if(page==='invoices')renderInvoices();
+  else if(page==='followups')renderFollowups();
+  else if(page==='clients')renderClients();
+  else if(page==='summaries')renderSummaries();
+  else if(page==='settings')renderSettings();
+}
+function renderAll(){renderDashboard();renderLeads();renderEstimates();renderJobs();renderInvoices();renderFollowups();renderClients();renderSummaries();renderSettings();}
+
+// ── MODAL FORMS ───────────────────────────────────────────────────────────────
+function sel(key){return(db.settings[key]||[]).map(v=>`<option value="${v}">${v}</option>`).join('');}
+
+const FORMS={
+  lead:(d={})=>`<div class="form-grid">
+    <div class="form-group"><label>First Name *</label><input id="f-firstName" value="${d.firstName||''}"/></div>
+    <div class="form-group"><label>Last Name</label><input id="f-lastName" value="${d.lastName||''}"/></div>
+    <div class="form-group"><label>Phone</label><input id="f-phone" value="${d.phone||''}"/></div>
+    <div class="form-group"><label>Email</label><input id="f-email" value="${d.email||''}"/></div>
+    <div class="form-group full"><label>Address</label><input id="f-address" value="${d.address||''}"/></div>
+    <div class="form-group"><label>Service Type</label><select id="f-serviceType"><option value="">Select...</option>${sel('serviceTypes')}</select></div>
+    <div class="form-group"><label>Lead Source</label><select id="f-source"><option value="">Select...</option>${sel('leadSources')}</select></div>
+    <div class="form-group"><label>Lead Status</label><select id="f-status"><option value="">Select...</option>${sel('leadStatuses')}</select></div>
+    <div class="form-group"><label>Date Added</label><input type="date" id="f-dateAdded" value="${d.dateAdded||today()}"/></div>
+    <div class="form-group"><label>Next Follow-Up Date</label><input type="date" id="f-followUpDate" value="${d.followUpDate||''}"/></div>
+    <div class="form-group"><label>Assigned To</label><select id="f-assignedTo"><option value="">Select...</option>${sel('teamMembers')}</select></div>
+    <div class="form-group"><label>Estimated Value ($)</label><input type="number" id="f-value" value="${d.value||''}"/></div>
+    <div class="form-group full"><label>Notes</label><textarea id="f-notes">${d.notes||''}</textarea></div>
+  </div>`,
+  estimate:(d={})=>`<div class="form-grid">
+    <div class="form-group"><label>Client/Lead Name *</label><input id="f-clientName" value="${d.clientName||''}"/></div>
+    <div class="form-group"><label>Linked Lead ID</label><input id="f-linkedLeadId" value="${d.linkedLeadId||''}"/></div>
+    <div class="form-group"><label>Service Type</label><select id="f-serviceType"><option value="">Select...</option>${sel('serviceTypes')}</select></div>
+    <div class="form-group"><label>Estimate Amount ($)</label><input type="number" id="f-amount" value="${d.amount||''}"/></div>
+    <div class="form-group"><label>Status</label><select id="f-status"><option value="">Select...</option>${sel('estimateStatuses')}</select></div>
+    <div class="form-group"><label>Date Created</label><input type="date" id="f-dateCreated" value="${d.dateCreated||today()}"/></div>
+    <div class="form-group"><label>Sent Date</label><input type="date" id="f-sentDate" value="${d.sentDate||''}"/></div>
+    <div class="form-group"><label>Follow-Up Date</label><input type="date" id="f-followUpDate" value="${d.followUpDate||''}"/></div>
+    <div class="form-group"><label>Approved Date</label><input type="date" id="f-approvedDate" value="${d.approvedDate||''}"/></div>
+    <div class="form-group full"><label>Notes</label><textarea id="f-notes">${d.notes||''}</textarea></div>
+  </div>`,
+  job:(d={})=>`<div class="form-grid">
+    <div class="form-group"><label>Client Name *</label><input id="f-clientName" value="${d.clientName||''}"/></div>
+    <div class="form-group"><label>Linked Estimate ID</label><input id="f-linkedEstimateId" value="${d.linkedEstimateId||''}"/></div>
+    <div class="form-group"><label>Service Type</label><select id="f-serviceType"><option value="">Select...</option>${sel('serviceTypes')}</select></div>
+    <div class="form-group"><label>Job Value ($)</label><input type="number" id="f-value" value="${d.value||''}"/></div>
+    <div class="form-group"><label>Job Status</label><select id="f-status"><option value="">Select...</option>${sel('jobStatuses')}</select></div>
+    <div class="form-group"><label>Priority</label><select id="f-priority"><option value="">Select...</option>${sel('priorityLevels')}</select></div>
+    <div class="form-group"><label>Start Date</label><input type="date" id="f-startDate" value="${d.startDate||''}"/></div>
+    <div class="form-group"><label>End Date</label><input type="date" id="f-endDate" value="${d.endDate||''}"/></div>
+    <div class="form-group"><label>Assigned To</label><select id="f-assignedTo"><option value="">Select...</option>${sel('teamMembers')}</select></div>
+    <div class="form-group full"><label>Notes</label><textarea id="f-notes">${d.notes||''}</textarea></div>
+  </div>`,
+  invoice:(d={})=>`<div class="form-grid">
+    <div class="form-group"><label>Client Name *</label><input id="f-clientName" value="${d.clientName||''}"/></div>
+    <div class="form-group"><label>Linked Job ID</label><input id="f-linkedJobId" value="${d.linkedJobId||''}"/></div>
+    <div class="form-group"><label>Invoice Amount ($)</label><input type="number" id="f-amount" value="${d.amount||''}"/></div>
+    <div class="form-group"><label>Amount Paid ($)</label><input type="number" id="f-amountPaid" value="${d.amountPaid||''}"/></div>
+    <div class="form-group"><label>Date Sent</label><input type="date" id="f-dateSent" value="${d.dateSent||today()}"/></div>
+    <div class="form-group"><label>Due Date</label><input type="date" id="f-dueDate" value="${d.dueDate||''}"/></div>
+    <div class="form-group"><label>Payment Date</label><input type="date" id="f-paymentDate" value="${d.paymentDate||''}"/></div>
+    <div class="form-group full"><label>Notes</label><textarea id="f-notes">${d.notes||''}</textarea></div>
+  </div>`,
+  followup:(d={})=>`<div class="form-grid">
+    <div class="form-group"><label>Client/Lead Name *</label><input id="f-name" value="${d.name||''}"/></div>
+    <div class="form-group"><label>Related Type</label><select id="f-relatedType"><option value="">Select...</option><option>Lead</option><option>Estimate</option><option>Invoice</option><option>Client</option></select></div>
+    <div class="form-group"><label>Related ID</label><input id="f-relatedId" value="${d.relatedId||''}"/></div>
+    <div class="form-group"><label>Due Date</label><input type="date" id="f-dueDate" value="${d.dueDate||today()}"/></div>
+    <div class="form-group full"><label>Reason</label><input id="f-reason" value="${d.reason||''}"/></div>
+    <div class="form-group"><label>Status</label><select id="f-status"><option value="">Select...</option>${sel('followUpStatuses')}</select></div>
+    <div class="form-group"><label>Owner</label><select id="f-owner"><option value="">Select...</option>${sel('teamMembers')}</select></div>
+    <div class="form-group full"><label>Notes</label><textarea id="f-notes">${d.notes||''}</textarea></div>
+  </div>`,
+  client:(d={})=>`<div class="form-grid">
+    <div class="form-group"><label>Client Name *</label><input id="f-name" value="${d.name||''}"/></div>
+    <div class="form-group"><label>Phone</label><input id="f-phone" value="${d.phone||''}"/></div>
+    <div class="form-group"><label>Email</label><input id="f-email" value="${d.email||''}"/></div>
+    <div class="form-group"><label>Service Type</label><select id="f-serviceType"><option value="">Select...</option>${sel('serviceTypes')}</select></div>
+    <div class="form-group full"><label>Service Address</label><input id="f-serviceAddress" value="${d.serviceAddress||''}"/></div>
+    <div class="form-group full"><label>Billing Address</label><input id="f-billingAddress" value="${d.billingAddress||''}"/></div>
+    <div class="form-group"><label>First Job Date</label><input type="date" id="f-firstJobDate" value="${d.firstJobDate||''}"/></div>
+    <div class="form-group"><label>Last Job Date</label><input type="date" id="f-lastJobDate" value="${d.lastJobDate||''}"/></div>
+    <div class="form-group"><label>Status</label><select id="f-status"><option value="">Select...</option>${sel('clientStatuses')}</select></div>
+    <div class="form-group full"><label>Notes</label><textarea id="f-notes">${d.notes||''}</textarea></div>
+  </div>`,
+};
+
+function gv(id){const el=document.getElementById(id);return el?el.value:'';}
+
+const SAVERS={
+  lead:(id)=>({id,firstName:gv('f-firstName'),lastName:gv('f-lastName'),phone:gv('f-phone'),email:gv('f-email'),address:gv('f-address'),serviceType:gv('f-serviceType'),source:gv('f-source'),status:gv('f-status'),dateAdded:gv('f-dateAdded'),followUpDate:gv('f-followUpDate'),assignedTo:gv('f-assignedTo'),value:gv('f-value'),notes:gv('f-notes')}),
+  estimate:(id)=>({id,clientName:gv('f-clientName'),linkedLeadId:gv('f-linkedLeadId'),serviceType:gv('f-serviceType'),amount:gv('f-amount'),status:gv('f-status'),dateCreated:gv('f-dateCreated'),sentDate:gv('f-sentDate'),followUpDate:gv('f-followUpDate'),approvedDate:gv('f-approvedDate'),notes:gv('f-notes')}),
+  job:(id)=>({id,clientName:gv('f-clientName'),linkedEstimateId:gv('f-linkedEstimateId'),serviceType:gv('f-serviceType'),value:gv('f-value'),status:gv('f-status'),priority:gv('f-priority'),startDate:gv('f-startDate'),endDate:gv('f-endDate'),assignedTo:gv('f-assignedTo'),notes:gv('f-notes')}),
+  invoice:(id)=>({id,clientName:gv('f-clientName'),linkedJobId:gv('f-linkedJobId'),amount:gv('f-amount'),amountPaid:gv('f-amountPaid'),dateSent:gv('f-dateSent'),dueDate:gv('f-dueDate'),paymentDate:gv('f-paymentDate'),notes:gv('f-notes')}),
+  followup:(id)=>({id,name:gv('f-name'),relatedType:gv('f-relatedType'),relatedId:gv('f-relatedId'),dueDate:gv('f-dueDate'),reason:gv('f-reason'),status:gv('f-status'),owner:gv('f-owner'),notes:gv('f-notes')}),
+  client:(id)=>({id,name:gv('f-name'),phone:gv('f-phone'),email:gv('f-email'),serviceType:gv('f-serviceType'),serviceAddress:gv('f-serviceAddress'),billingAddress:gv('f-billingAddress'),firstJobDate:gv('f-firstJobDate'),lastJobDate:gv('f-lastJobDate'),status:gv('f-status'),notes:gv('f-notes')}),
+};
+
+const TYPE_MAP={lead:'leads',estimate:'estimates',job:'jobs',invoice:'invoices',followup:'followups',client:'clients'};
+const PREFIX_MAP={lead:'L',estimate:'E',job:'J',invoice:'INV',followup:'FU',client:'C'};
+const TITLES={lead:'Lead',estimate:'Estimate',job:'Job',invoice:'Invoice',followup:'Follow-Up',client:'Client'};
+
+function openModal(type,id=null){
+  editingType=type;editingId=id;
+  const arr=db[TYPE_MAP[type]];
+  const existing=id?arr.find(r=>r.id===id):{};
+  document.getElementById('modal-title').textContent=(id?'Edit ':'Add ')+TITLES[type];
+  document.getElementById('modal-body').innerHTML=FORMS[type](existing||{});
+  // Set select values after render
+  if(existing){
+    setTimeout(()=>{
+      ['serviceType','source','status','assignedTo','priority','relatedType','owner'].forEach(f=>{
+        const el=document.getElementById('f-'+f);
+        if(el&&existing[f])el.value=existing[f];
+      });
+    },10);
+  }
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(){
+  document.getElementById('modal-overlay').classList.remove('open');
+  editingType=null;editingId=null;
+}
+
+function saveModal(){
+  const type=editingType;
+  const arr=db[TYPE_MAP[type]];
+  const id=editingId||genId(PREFIX_MAP[type],arr);
+  const record=SAVERS[type](id);
+  if(editingId){
+    const idx=arr.findIndex(r=>r.id===editingId);
+    if(idx>=0)arr[idx]=record;
+  } else {
+    arr.push(record);
+  }
+  save();closeModal();render(Object.keys(TYPE_MAP).find(k=>TYPE_MAP[k]===TYPE_MAP[type])?TYPE_MAP[type].replace('s',''):'dashboard');
+  // Re-render correct page
+  const pageMap={leads:'leads',estimates:'estimates',jobs:'jobs',invoices:'invoices',followups:'followups',clients:'clients'};
+  render(TYPE_MAP[type]==='leads'?'leads':TYPE_MAP[type]==='estimates'?'estimates':TYPE_MAP[type]==='jobs'?'jobs':TYPE_MAP[type]==='invoices'?'invoices':TYPE_MAP[type]==='followups'?'followups':'clients');
+  renderDashboard();
+}
+
+function deleteRecord(collection,id){
+  if(!confirm('Delete this record?'))return;
+  db[collection]=db[collection].filter(r=>r.id!==id);
+  save();
+  const pageMap={leads:'leads',estimates:'estimates',jobs:'jobs',invoices:'invoices',followups:'followups',clients:'clients'};
+  render(pageMap[collection]||'dashboard');
+  renderDashboard();
+}
+
+// ── QUICK ENTRY AI ────────────────────────────────────────────────────────────
+let pendingQuickRecord = null;
+let isRecording = false;
+let recognition = null;
+
+function parseQuickEntry(text) {
+  const t = text.toLowerCase();
+  const result = { type: null, data: {}, summary: '' };
+
+  // Extract name (First Last pattern)
+  const nameMatch = text.match(/\b([A-Z][a-z]+)\s+([A-Z][a-z]+)\b/);
+  const firstName = nameMatch ? nameMatch[1] : '';
+  const lastName = nameMatch ? nameMatch[2] : '';
+  const fullName = nameMatch ? `${firstName} ${lastName}` : '';
+
+  // Extract phone
+  const phoneMatch = text.match(/(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})/);
+  const phone = phoneMatch ? phoneMatch[1] : '';
+
+  // Extract dollar amount
+  const moneyMatch = text.match(/\$?([\d,]+(?:\.\d{2})?)\s*(?:dollars?|bucks?)?/);
+  const amount = moneyMatch ? moneyMatch[1].replace(',','') : '';
+
+  // Extract service type
+  const services = db.settings.serviceTypes || [];
+  let serviceType = '';
+  services.forEach(s => { if(t.includes(s.toLowerCase())) serviceType = s; });
+
+  // Extract lead source
+  const sources = db.settings.leadSources || [];
+  let source = '';
+  sources.forEach(s => { if(t.includes(s.toLowerCase())) source = s; });
+
+  // Extract date
+  const dateMatch = text.match(/(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/);
+  let dateStr = '';
+  if(dateMatch) {
+    const parts = dateMatch[1].split(/[\/\-]/);
+    if(parts.length >= 2) {
+      const yr = parts[2] ? (parts[2].length === 2 ? '20'+parts[2] : parts[2]) : new Date().getFullYear();
+      dateStr = `${yr}-${String(parts[0]).padStart(2,'0')}-${String(parts[1]).padStart(2,'0')}`;
+    }
+  }
+
+  // ── DETECT INTENT ──
+
+  // NEW LEAD
+  if(t.includes('new lead') || t.includes('new client inquiry') || t.includes('got a lead') || t.includes('lead came in') || (t.includes('called') && !t.includes('invoice') && !t.includes('job'))) {
+    result.type = 'lead';
+    result.data = {
+      firstName, lastName, phone,
+      serviceType: serviceType || '',
+      source: source || 'Phone',
+      status: 'New',
+      dateAdded: today(),
+      value: amount || '',
+    };
+    result.summary = `📋 <strong>New Lead</strong><br>
+      Name: ${fullName || '(not detected)'}<br>
+      ${phone ? 'Phone: '+phone+'<br>' : ''}
+      ${serviceType ? 'Service: '+serviceType+'<br>' : ''}
+      ${source ? 'Source: '+source+'<br>' : ''}
+      ${amount ? 'Est. Value: $'+amount : ''}`;
+    return result;
+  }
+
+  // NEW INVOICE
+  if(t.includes('invoice') || t.includes('bill') || (t.includes('job done') || t.includes('job finished') || t.includes('job complete') || t.includes('finished the'))) {
+    result.type = 'invoice';
+    // Find matching client/job
+    const matchedJob = db.jobs.find(j => fullName && j.clientName && j.clientName.toLowerCase().includes(firstName.toLowerCase()));
+    result.data = {
+      clientName: fullName || (matchedJob ? matchedJob.clientName : ''),
+      linkedJobId: matchedJob ? matchedJob.id : '',
+      amount: amount || '',
+      dateSent: today(),
+      dueDate: (() => { const d = new Date(); d.setDate(d.getDate()+30); return d.toISOString().split('T')[0]; })(),
+      amountPaid: '0',
+    };
+    result.summary = `🧾 <strong>New Invoice</strong><br>
+      Client: ${fullName || '(not detected)'}<br>
+      Amount: ${amount ? '$'+Number(amount).toLocaleString() : '(not detected)'}<br>
+      Due: 30 days from today<br>
+      ${matchedJob ? 'Linked Job: '+matchedJob.id : ''}`;
+    return result;
+  }
+
+  // NEW JOB
+  if(t.includes('new job') || t.includes('starting job') || t.includes('job starts') || t.includes('signed') || t.includes('approved') || t.includes('won the job')) {
+    result.type = 'job';
+    result.data = {
+      clientName: fullName || '',
+      serviceType: serviceType || '',
+      value: amount || '',
+      status: 'Scheduled',
+      startDate: dateStr || '',
+      priority: 'Medium',
+    };
+    result.summary = `🏗️ <strong>New Job</strong><br>
+      Client: ${fullName || '(not detected)'}<br>
+      ${serviceType ? 'Service: '+serviceType+'<br>' : ''}
+      ${amount ? 'Value: $'+amount+'<br>' : ''}
+      ${dateStr ? 'Start: '+fmt(dateStr) : ''}`;
+    return result;
+  }
+
+  // FOLLOW-UP
+  if(t.includes('follow up') || t.includes('follow-up') || t.includes('call back') || t.includes('check in') || t.includes('remind')) {
+    result.type = 'followup';
+    result.data = {
+      name: fullName || '',
+      reason: text.replace(/follow.?up|remind me|call back|check in/gi,'').trim(),
+      dueDate: dateStr || today(),
+      status: 'Open',
+      owner: 'Owner',
+      relatedType: 'Lead',
+    };
+    result.summary = `🔔 <strong>Follow-Up</strong><br>
+      Name: ${fullName || '(not detected)'}<br>
+      Reason: ${result.data.reason || text}<br>
+      Due: ${fmt(result.data.dueDate)}`;
+    return result;
+  }
+
+  // ESTIMATE
+  if(t.includes('estimate') || t.includes('quote') || t.includes('bid')) {
+    result.type = 'estimate';
+    result.data = {
+      clientName: fullName || '',
+      serviceType: serviceType || '',
+      amount: amount || '',
+      status: 'Draft',
+      dateCreated: today(),
+    };
+    result.summary = `📐 <strong>New Estimate</strong><br>
+      Client: ${fullName || '(not detected)'}<br>
+      ${serviceType ? 'Service: '+serviceType+'<br>' : ''}
+      ${amount ? 'Amount: $'+amount : '(amount not detected)'}`;
+    return result;
+  }
+
+  // Couldn't detect
+  result.type = null;
+  result.summary = `❓ Couldn't figure out what to create from that. Try being more specific, like:<br><br>
+    • "New lead John Smith, roofing, called from Google, 555-1234"<br>
+    • "Job done for Maria, send invoice $4500"<br>
+    • "Follow up with Bob Johnson tomorrow"<br>
+    • "New estimate for Dave, concrete, $8000"`;
+  return result;
+}
+
+function processQuickEntry() {
+  const input = document.getElementById('quick-input');
+  const text = input.value.trim();
+  if(!text) return;
+
+  const result = parseQuickEntry(text);
+  pendingQuickRecord = result;
+
+  document.getElementById('quick-result-content').innerHTML = result.summary;
+  document.getElementById('quick-result').classList.add('show');
+
+  // Change actions if nothing detected
+  if(!result.type) {
+    document.querySelector('.quick-result-actions').innerHTML = `<button class="btn-discard" onclick="discardQuickEntry()">Got it</button>`;
+  } else {
+    document.querySelector('.quick-result-actions').innerHTML = `
+      <button class="btn-confirm" onclick="confirmQuickEntry()">✓ Save It</button>
+      <button class="btn-discard" onclick="discardQuickEntry()">✕ Discard</button>`;
+  }
+}
+
+function confirmQuickEntry() {
+  if(!pendingQuickRecord || !pendingQuickRecord.type) return;
+  const type = pendingQuickRecord.type;
+  const arr = db[TYPE_MAP[type]];
+  const id = genId(PREFIX_MAP[type], arr);
+  const record = { id, ...pendingQuickRecord.data };
+  arr.push(record);
+  save();
+  discardQuickEntry();
+  document.getElementById('quick-input').value = '';
+  renderAll();
+
+  // Flash the relevant nav item
+  const navMap = { lead:'leads', invoice:'invoices', job:'jobs', followup:'followups', estimate:'estimates', client:'clients' };
+  const targetPage = navMap[type];
+  const navItem = [...document.querySelectorAll('.nav-item')].find(n => n.textContent.trim().toLowerCase().startsWith(targetPage.replace('s','')));
+
+  // Show confirmation toast
+  showToast(`✅ ${type.charAt(0).toUpperCase()+type.slice(1)} saved successfully!`);
+}
+
+function discardQuickEntry() {
+  document.getElementById('quick-result').classList.remove('show');
+  pendingQuickRecord = null;
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--green);color:#000;padding:10px 20px;border-radius:8px;font-weight:700;font-size:0.85rem;z-index:9999;';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// ── CREW NOTIFICATIONS ────────────────────────────────────────────────────────
+let currentCrewJobId = null;
+
+const CREW_TEMPLATES = [
+  'Job starts tomorrow — be ready at 7AM',
+  'Materials arriving today — be on site',
+  'Job status updated — check Blueprint Hub',
+  'Job complete — head to next site',
+  'Client on site — be professional',
+  'Weather delay — job postponed, will update',
+  'Early start today — 6AM on site',
+  'Job running long — expect overtime',
+];
+
+function openCrewModal(jobId) {
+  currentCrewJobId = jobId;
+  const job = db.jobs.find(j => j.id === jobId);
+  if(!job) return;
+
+  // Job info
+  document.getElementById('crew-job-info').innerHTML = `
+    <strong>${job.id}</strong> — ${job.clientName||'Unknown Client'}<br>
+    ${job.serviceType||''} ${job.status ? '· '+job.status : ''} ${job.assignedTo ? '· Assigned: '+job.assignedTo : ''}`;
+
+  // Build member list
+  const members = db.settings.teamMembers || [];
+  const phones = db.settings.teamMemberPhones || {};
+  document.getElementById('crew-member-list').innerHTML = members.length ?
+    members.map(name => {
+      const phone = phones[name] || '';
+      const hasPhone = phone.length > 0;
+      return `<label class="crew-member-item">
+        <input type="checkbox" class="crew-checkbox" value="${name}" data-phone="${phone}" ${!hasPhone?'disabled':''} onchange="updateCrewCount()"/>
+        <span class="crew-member-name">${name}</span>
+        ${hasPhone
+          ? `<span class="crew-member-phone">${phone}</span>`
+          : `<span class="crew-member-nophone">No phone — add in Settings</span>`}
+      </label>`;
+    }).join('') :
+    `<div style="color:var(--muted);font-size:0.85rem;padding:10px 0;">No team members yet. Add them in Settings first.</div>`;
+
+  // Templates
+  document.getElementById('crew-templates').innerHTML = CREW_TEMPLATES.map(t =>
+    `<button class="crew-template-btn" onclick="useCewTemplate(this)">${t}</button>`
+  ).join('');
+
+  // Pre-fill message based on job status
+  const statusMessages = {
+    'Scheduled': `Job ${job.id} scheduled — ${job.clientName||''} ${job.serviceType||''} ${job.startDate?'· Start: '+fmt(job.startDate):''}`,
+    'In Progress': `Job ${job.id} is now IN PROGRESS — ${job.clientName||''} ${job.serviceType||''}`,
+    'Completed': `Job ${job.id} COMPLETE — ${job.clientName||''} ${job.serviceType||''} · Ready to invoice`,
+    'Waiting': `Job ${job.id} on HOLD — ${job.clientName||''} · Waiting on materials/approval`,
+  };
+  document.getElementById('crew-msg').value = statusMessages[job.status] || `Update on Job ${job.id} — ${job.clientName||''} ${job.serviceType||''}`;
+
+  updateCrewCount();
+  document.getElementById('crew-modal-overlay').classList.add('open');
+}
+
+function useCewTemplate(btn) {
+  document.getElementById('crew-msg').value = btn.textContent;
+}
+
+function updateCrewCount() {
+  const checked = document.querySelectorAll('.crew-checkbox:checked').length;
+  document.getElementById('crew-send-count').textContent = `${checked} recipient${checked!==1?'s':''} selected`;
+}
+
+function closeCrewModal() {
+  document.getElementById('crew-modal-overlay').classList.remove('open');
+  currentCrewJobId = null;
+}
+
+function sendCrewNotification() {
+  const checked = [...document.querySelectorAll('.crew-checkbox:checked')];
+  if(!checked.length) { showToast('⚠️ Select at least one crew member'); return; }
+  const msg = document.getElementById('crew-msg').value.trim();
+  if(!msg) { showToast('⚠️ Type a message first'); return; }
+
+  const job = db.jobs.find(j => j.id === currentCrewJobId);
+  const recipients = checked.map(c => ({ name: c.value, phone: c.dataset.phone }));
+
+  // Log the notification
+  if(!db.crewLog) db.crewLog = [];
+  db.crewLog.unshift({
+    id: 'CL'+(db.crewLog.length+1),
+    jobId: currentCrewJobId,
+    jobClient: job ? job.clientName : '',
+    message: msg,
+    recipients: recipients.map(r=>r.name).join(', '),
+    sentAt: new Date().toISOString(),
+  });
+  // Keep last 50
+  if(db.crewLog.length > 50) db.crewLog = db.crewLog.slice(0,50);
+  save();
+
+  // Build SMS — if multiple recipients, open one by one or use comma-separated
+  // Most phones support sms: with multiple numbers comma-separated
+  const phones = recipients.map(r=>r.phone.replace(/\D/g,'')).join(',');
+  const encoded = encodeURIComponent(msg);
+
+  // Open native SMS
+  window.location.href = `sms:${phones}?body=${encoded}`;
+
+  closeCrewModal();
+  renderDashboard();
+  showToast(`📲 Opening SMS for ${recipients.length} crew member${recipients.length!==1?'s':''}...`);
+}
+
+function renderCrewLog() {
+  const log = (db.crewLog||[]).slice(0,10);
+  const el = document.getElementById('dash-crew-log');
+  if(!el) return;
+  if(!log.length) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:0.82rem;padding:8px 0;">No notifications sent yet. Use the 📲 button on any job.</div>`;
+    return;
+  }
+  el.innerHTML = log.map(l=>`
+    <div class="crew-log-item">
+      <strong>${l.recipients}</strong> — ${l.message.length>60?l.message.substring(0,60)+'...':l.message}
+      <div class="crew-log-meta">Job: ${l.jobId} ${l.jobClient?'('+l.jobClient+')':''} · ${new Date(l.sentAt).toLocaleDateString()} ${new Date(l.sentAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+    </div>`).join('');
+}
+
+// ── SUMMARIES ─────────────────────────────────────────────────────────────────
+function getMonthKey(date) {
+  return date.toISOString().substring(0,7); // "2026-04"
+}
+function monthLabel(key) {
+  const [yr,mo] = key.split('-');
+  const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return names[parseInt(mo)-1] + ' ' + yr;
+}
+
+function buildSummaryData(monthKey) {
+  const [yr,mo] = monthKey.split('-');
+  const prefix = monthKey; // "2026-04"
+
+  // Leads added this month
+  const newLeads = db.leads.filter(l => l.dateAdded && l.dateAdded.startsWith(prefix));
+  const wonLeads = newLeads.filter(l => l.status === 'Won');
+  const lostLeads = newLeads.filter(l => l.status === 'Lost');
+  const conversionRate = newLeads.length ? Math.round((wonLeads.length/newLeads.length)*100) : 0;
+
+  // Jobs
+  const completedJobs = db.jobs.filter(j => j.endDate && j.endDate.startsWith(prefix));
+  const totalJobValue = completedJobs.reduce((s,j) => s+Number(j.value||0), 0);
+
+  // Invoices
+  const invoicesSent = db.invoices.filter(i => i.dateSent && i.dateSent.startsWith(prefix));
+  const revenue = invoicesSent.reduce((s,i) => s+Number(i.amount||0), 0);
+  const cashCollected = db.invoices.filter(i => i.paymentDate && i.paymentDate.startsWith(prefix)).reduce((s,i) => s+Number(i.amountPaid||0), 0);
+  const unpaidAmt = invoicesSent.filter(i => calcAutoStatus(i) !== 'Paid').reduce((s,i) => s+Math.max(0,Number(i.amount||0)-Number(i.amountPaid||0)), 0);
+
+  // Follow-ups
+  const fuDue = db.followups.filter(f => f.dueDate && f.dueDate.startsWith(prefix));
+  const fuDone = fuDue.filter(f => f.status === 'Done');
+
+  // Top clients by invoice amount
+  const clientTotals = {};
+  invoicesSent.forEach(i => {
+    if(i.clientName) clientTotals[i.clientName] = (clientTotals[i.clientName]||0) + Number(i.amount||0);
+  });
+  const topClients = Object.entries(clientTotals).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  return {
+    monthKey, newLeads:newLeads.length, wonLeads:wonLeads.length,
+    lostLeads:lostLeads.length, conversionRate,
+    completedJobs:completedJobs.length, totalJobValue,
+    invoicesSent:invoicesSent.length, revenue, cashCollected, unpaidAmt,
+    fuDue:fuDue.length, fuDone:fuDone.length,
+    topClients, leads:newLeads, jobs:completedJobs, invoices:invoicesSent,
+    generatedAt: new Date().toISOString()
+  };
+}
+
+function generateSummary(isAuto) {
+  if(!db.summaries) db.summaries = [];
+  const now = new Date();
+  // For auto: generate previous month. For manual: generate current month.
+  const targetDate = isAuto ? new Date(now.getFullYear(), now.getMonth()-1, 1) : now;
+  const monthKey = getMonthKey(targetDate);
+
+  // Don't duplicate
+  const existing = db.summaries.findIndex(s => s.monthKey === monthKey);
+  const data = buildSummaryData(monthKey);
+
+  if(existing >= 0) {
+    if(!confirm(`A summary for ${monthLabel(monthKey)} already exists. Overwrite it?`)) return;
+    db.summaries[existing] = data;
+  } else {
+    db.summaries.unshift(data);
+  }
+  save();
+  renderSummaries();
+  if(!isAuto) showToast(`📅 ${monthLabel(monthKey)} summary saved!`);
+}
+
+function deleteSummary(monthKey) {
+  if(!confirm('Delete this summary?')) return;
+  db.summaries = (db.summaries||[]).filter(s => s.monthKey !== monthKey);
+  save();
+  renderSummaries();
+}
+
+function exportSummary(monthKey) {
+  const s = (db.summaries||[]).find(s => s.monthKey === monthKey);
+  if(!s) return;
+
+  let text = `BLUEPRINT HUB OPERATIONS — MONTHLY SUMMARY\n`;
+  text += `Month: ${monthLabel(monthKey)}\n`;
+  text += `Generated: ${new Date(s.generatedAt).toLocaleDateString()}\n\n`;
+  text += `=== OVERVIEW ===\n`;
+  text += `New Leads\t${s.newLeads}\n`;
+  text += `Leads Won\t${s.wonLeads}\n`;
+  text += `Leads Lost\t${s.lostLeads}\n`;
+  text += `Conversion Rate\t${s.conversionRate}%\n`;
+  text += `Completed Jobs\t${s.completedJobs}\n`;
+  text += `Total Job Value\t$${s.totalJobValue.toLocaleString()}\n`;
+  text += `Invoices Sent\t${s.invoicesSent}\n`;
+  text += `Revenue Invoiced\t$${s.revenue.toLocaleString()}\n`;
+  text += `Cash Collected\t$${s.cashCollected.toLocaleString()}\n`;
+  text += `Outstanding Balance\t$${s.unpaidAmt.toLocaleString()}\n`;
+  text += `Follow-Ups Due\t${s.fuDue}\n`;
+  text += `Follow-Ups Completed\t${s.fuDone}\n\n`;
+
+  if(s.topClients && s.topClients.length) {
+    text += `=== TOP CLIENTS ===\n`;
+    text += `Client\tRevenue\n`;
+    s.topClients.forEach(([name,amt]) => { text += `${name}\t$${amt.toLocaleString()}\n`; });
+    text += '\n';
+  }
+
+  if(s.leads && s.leads.length) {
+    text += `=== LEADS THIS MONTH ===\n`;
+    text += `Lead ID\tName\tService\tSource\tStatus\tValue\n`;
+    s.leads.forEach(l => {
+      text += `${l.id}\t${l.firstName||''} ${l.lastName||''}\t${l.serviceType||''}\t${l.source||''}\t${l.status||''}\t${l.value?'$'+l.value:''}\n`;
+    });
+    text += '\n';
+  }
+
+  if(s.invoices && s.invoices.length) {
+    text += `=== INVOICES THIS MONTH ===\n`;
+    text += `Invoice ID\tClient\tAmount\tPaid\tStatus\n`;
+    s.invoices.forEach(i => {
+      text += `${i.id}\t${i.clientName||''}\t${i.amount?'$'+i.amount:''}\t${i.amountPaid?'$'+i.amountPaid:''}\t${calcAutoStatus(i)}\n`;
+    });
+  }
+
+  // Copy to clipboard
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('📋 Copied! Paste into Excel or Google Sheets.');
+  }).catch(() => {
+    // Fallback: show in textarea
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:80%;height:60%;background:var(--dark2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:16px;font-family:monospace;font-size:0.8rem;z-index:9999;';
+    document.body.appendChild(ta);
+    ta.select();
+    showToast('📋 Select all and copy to clipboard.');
+    setTimeout(()=>ta.remove(), 15000);
+  });
+}
+
+function renderSummaries() {
+  const summaries = db.summaries || [];
+  const container = document.getElementById('summaries-list');
+  if(!container) return;
+
+  if(!summaries.length) {
+    container.innerHTML = `<div class="no-summaries">
+      <div class="big-icon">📅</div>
+      <p style="font-size:1rem;font-weight:700;margin-bottom:8px;">No summaries yet</p>
+      <p style="font-size:0.88rem;">Summaries auto-generate on the 1st of each month.<br>You can also generate one manually anytime.</p>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = summaries.map(s => `
+    <div class="summary-card">
+      <div class="summary-card-header">
+        <div class="summary-month-title">
+          ${monthLabel(s.monthKey)}
+          ${s.auto ? '<span class="auto-badge">AUTO</span>' : ''}
+        </div>
+        <div class="summary-card-actions">
+          <button class="btn-export" onclick="exportSummary('${s.monthKey}')">📋 Copy to Clipboard</button>
+          <button class="btn-delete-summary" onclick="deleteSummary('${s.monthKey}')">🗑️</button>
+        </div>
+      </div>
+      <div class="summary-body">
+        <div class="summary-stats">
+          <div class="summary-stat"><div class="summary-stat-label">Revenue Invoiced</div><div class="summary-stat-value green">$${s.revenue.toLocaleString()}</div></div>
+          <div class="summary-stat"><div class="summary-stat-label">Cash Collected</div><div class="summary-stat-value green">$${s.cashCollected.toLocaleString()}</div></div>
+          <div class="summary-stat"><div class="summary-stat-label">Outstanding</div><div class="summary-stat-value red">$${s.unpaidAmt.toLocaleString()}</div></div>
+          <div class="summary-stat"><div class="summary-stat-label">New Leads</div><div class="summary-stat-value yellow">${s.newLeads}</div></div>
+          <div class="summary-stat"><div class="summary-stat-label">Leads Won</div><div class="summary-stat-value green">${s.wonLeads}</div></div>
+          <div class="summary-stat"><div class="summary-stat-label">Conversion Rate</div><div class="summary-stat-value yellow">${s.conversionRate}%</div></div>
+          <div class="summary-stat"><div class="summary-stat-label">Jobs Completed</div><div class="summary-stat-value yellow">${s.completedJobs}</div></div>
+          <div class="summary-stat"><div class="summary-stat-label">Invoices Sent</div><div class="summary-stat-value yellow">${s.invoicesSent}</div></div>
+        </div>
+        ${s.topClients && s.topClients.length ? `
+        <div class="summary-section">
+          <div class="summary-section-title">Top Clients</div>
+          <table class="summary-table">
+            <thead><tr><th>Client</th><th>Revenue</th></tr></thead>
+            <tbody>${s.topClients.map(([name,amt])=>`<tr><td>${name}</td><td>$${amt.toLocaleString()}</td></tr>`).join('')}</tbody>
+          </table>
+        </div>` : ''}
+        <div style="margin-top:12px;font-size:0.75rem;color:var(--muted);">Generated ${new Date(s.generatedAt).toLocaleDateString()}</div>
+      </div>
+    </div>`).join('');
+}
+
+function checkAutoSummary() {
+  if(!db.summaries) db.summaries = [];
+  const now = new Date();
+  // Only auto-generate if it's the 1st of the month
+  if(now.getDate() !== 1) return;
+  const prevMonth = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const monthKey = getMonthKey(prevMonth);
+  const alreadyExists = db.summaries.some(s => s.monthKey === monthKey && s.auto);
+  if(!alreadyExists) {
+    const data = buildSummaryData(monthKey);
+    data.auto = true;
+    db.summaries.unshift(data);
+    save();
+    showToast(`📅 ${monthLabel(monthKey)} summary auto-generated!`);
+  }
+}
+
+// ── VOICE INPUT ───────────────────────────────────────────────────────────────
+function toggleMic() {
+  if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    showToast('⚠️ Voice not supported in this browser. Try Chrome.');
+    return;
+  }
+  if(isRecording) {
+    recognition && recognition.stop();
+    isRecording = false;
+    document.getElementById('mic-btn').classList.remove('recording');
+    document.getElementById('mic-btn').textContent = '🎤';
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.interimResults = false;
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    document.getElementById('quick-input').value = transcript;
+    isRecording = false;
+    document.getElementById('mic-btn').classList.remove('recording');
+    document.getElementById('mic-btn').textContent = '🎤';
+    processQuickEntry();
+  };
+  recognition.onerror = () => {
+    isRecording = false;
+    document.getElementById('mic-btn').classList.remove('recording');
+    document.getElementById('mic-btn').textContent = '🎤';
+  };
+  recognition.start();
+  isRecording = true;
+  document.getElementById('mic-btn').classList.add('recording');
+  document.getElementById('mic-btn').textContent = '⏹️';
+}
+
+// Init
+if(localStorage.getItem('bh_session')){renderAll();checkAutoSummary();}
+</script>
+</body>
+</html>
