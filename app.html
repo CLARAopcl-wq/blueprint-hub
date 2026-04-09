@@ -1832,30 +1832,74 @@ function smartMatch(headerRaw, field){
   return checks.some(c => h === c || h.includes(c) || c.includes(h));
 }
 
+const DATE_FIELDS = ['dateAdded','followUpDate','startDate','endDate','dateSent','dueDate','paymentDate','dateCreated','sentDate','approvedDate','firstJobDate','lastJobDate'];
+const MONEY_FIELDS = ['value','amount','amountPaid'];
+const PHONE_FIELDS = ['phone'];
+
 // Clean and normalize imported values
 function cleanImportValue(val, fieldKey){
   if(val === null || val === undefined) return '';
   let v = String(val).trim();
+  if(v === '') return '';
 
-  // Handle Excel date serial numbers
-  if(['dateAdded','followUpDate','startDate','endDate','dateSent','dueDate','paymentDate','dateCreated','sentDate','approvedDate','firstJobDate','lastJobDate'].includes(fieldKey)){
-    // Excel serial date (numbers like 44958)
+  // ── PHONE: normalize to (XXX) XXX-XXXX ──────────────────────────────────
+  if(PHONE_FIELDS.includes(fieldKey)){
+    const digits = v.replace(/\D/g,'');
+    // Strip leading country code 1
+    const d = digits.startsWith('1') && digits.length === 11 ? digits.slice(1) : digits;
+    if(d.length === 10){
+      return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
+    }
+    // Partial number — return as-is cleaned
+    return d.length > 0 ? d : v;
+  }
+
+  // ── DATES: normalize to YYYY-MM-DD ───────────────────────────────────────
+  if(DATE_FIELDS.includes(fieldKey)){
+    // Excel serial number (e.g. 46058)
     if(/^\d{4,5}$/.test(v)){
       const d = new Date((parseInt(v) - 25569) * 86400 * 1000);
       if(!isNaN(d.getTime())) return d.toISOString().split('T')[0];
     }
-    // Already looks like a date string — normalize to YYYY-MM-DD
+    // ISO format already
+    if(/^\d{4}-\d{2}-\d{2}/.test(v)) return v.substring(0,10);
+    // M/D/YYYY or M/D/YY
+    const mdy = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+    if(mdy){
+      const yr = mdy[3].length === 2 ? '20'+mdy[3] : mdy[3];
+      return `${yr}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
+    }
+    // Try natural language parse
     const parsed = new Date(v);
     if(!isNaN(parsed.getTime()) && v.length > 4) return parsed.toISOString().split('T')[0];
     return v;
   }
 
-  // Handle dollar amounts — strip $, commas
-  if(['value','amount','amountPaid'].includes(fieldKey)){
-    return v.replace(/[$,\s]/g,'') || '';
+  // ── MONEY: strip $, commas, spaces ───────────────────────────────────────
+  if(MONEY_FIELDS.includes(fieldKey)){
+    const cleaned = v.replace(/[$,\s]/g,'');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? '' : String(num);
   }
 
   return v;
+}
+
+// Detect if a column looks like dates or phones — helps with type scoring
+function columnLooksLike(values){
+  const sample = values.filter(v => v && String(v).trim()).slice(0,5);
+  if(!sample.length) return null;
+  const dateHits = sample.filter(v => {
+    const s = String(v);
+    return /^\d{4,5}$/.test(s) || /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/.test(s) || /^\d{4}-\d{2}-\d{2}/.test(s);
+  }).length;
+  const phoneHits = sample.filter(v => {
+    const d = String(v).replace(/\D/g,'');
+    return d.length >= 10;
+  }).length;
+  if(dateHits >= sample.length * 0.6) return 'date';
+  if(phoneHits >= sample.length * 0.6) return 'phone';
+  return null;
 }
 
 // Sheet name → BH type mapping
@@ -2092,29 +2136,69 @@ function selectImportType(type, btn){
 function buildMappingUI(type){
   const fields = IMPORT_FIELDS[type] || [];
   const headers = importData.headers;
+  const rows = importData.rows;
   const mapSection = document.getElementById('import-mapping-section');
   const mapGrid = document.getElementById('import-mapping-grid');
   mapSection.style.display = 'block';
 
+  // Analyze each column's content type
+  const colTypes = headers.map((h,i) => {
+    const colVals = rows.map(r => r[i]);
+    return columnLooksLike(colVals);
+  });
+
+  // Build column labels with content hints
+  const colLabels = headers.map((h,i) => {
+    const hint = colTypes[i] === 'date' ? ' 📅' : colTypes[i] === 'phone' ? ' 📱' : '';
+    // Show sample value
+    const sample = rows.slice(0,3).map(r=>r[i]).filter(v=>v&&String(v).trim()).map(v=>{
+      // Format preview
+      if(colTypes[i]==='date'){const c=cleanImportValue(v,'dateAdded');return c||String(v);}
+      if(colTypes[i]==='phone'){const c=cleanImportValue(v,'phone');return c||String(v);}
+      return String(v).substring(0,18);
+    });
+    const preview = sample.length ? ` — e.g. "${sample[0]}"` : '';
+    return `${h||'Column '+(i+1)}${hint}${preview}`;
+  });
+
+  // Also boost matching for phone/date fields using column content
+  function findBestMatch(field){
+    // First try header name
+    let idx = headers.findIndex(h => smartMatch(h, field));
+    if(idx >= 0) return idx;
+    // Then try content type hints
+    if(PHONE_FIELDS.includes(field.key)){
+      idx = colTypes.findIndex(t => t === 'phone');
+      if(idx >= 0) return idx;
+    }
+    if(DATE_FIELDS.includes(field.key)){
+      // For date fields, try to find unmatched date columns
+      idx = colTypes.findIndex(t => t === 'date');
+      if(idx >= 0) return idx;
+    }
+    return -1;
+  }
+
   mapGrid.innerHTML = fields.map(field => {
-    // Smart auto-match using aliases
-    const autoMatch = headers.findIndex(h => smartMatch(h, field));
+    const autoMatch = findBestMatch(field);
+    const isDateField = DATE_FIELDS.includes(field.key);
+    const isPhoneField = PHONE_FIELDS.includes(field.key);
+    const fieldIcon = isDateField ? '📅 ' : isPhoneField ? '📱 ' : '';
     return `<div class="map-row">
-      <label>${field.label}${autoMatch>=0?` <span style="color:var(--green);font-size:0.7rem;">✓ matched</span>`:''}</label>
+      <label>${fieldIcon}${field.label}${autoMatch>=0?` <span style="color:var(--green);font-size:0.7rem;">✓ auto-matched</span>`:''}</label>
       <select id="map-${field.key}">
         <option value="">— Skip this field —</option>
-        ${headers.map((h,i)=>`<option value="${i}" ${i===autoMatch&&autoMatch>=0?'selected':''}>${h||'Column '+(i+1)}</option>`).join('')}
+        ${colLabels.map((lbl,i)=>`<option value="${i}" ${i===autoMatch?'selected':''}>${lbl}</option>`).join('')}
       </select>
     </div>`;
   }).join('');
 
-  const matched = fields.filter(f => headers.findIndex(h=>smartMatch(h,f)) >= 0).length;
+  const matched = fields.filter(f => findBestMatch(f) >= 0).length;
 
-  // Show action section
   const actionSection = document.getElementById('import-action-section');
   actionSection.style.display = 'flex';
   document.getElementById('import-summary-text').textContent =
-    `Ready to import ${importData.rows.length} ${type}s — ${matched}/${fields.length} columns auto-matched`;
+    `Ready to import ${importData.rows.length} ${type}${importData.rows.length!==1?'s':''} — ${matched}/${fields.length} columns auto-matched`;
 }
 
 function executeImport(){
