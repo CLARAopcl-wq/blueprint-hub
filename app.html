@@ -1758,60 +1758,105 @@ let importData = { rows:[], headers:[], type:null };
 
 const IMPORT_FIELDS = {
   lead: [
-    {key:'firstName',label:'First Name'},
-    {key:'lastName',label:'Last Name'},
-    {key:'phone',label:'Phone'},
-    {key:'email',label:'Email'},
-    {key:'address',label:'Address'},
-    {key:'serviceType',label:'Service Type'},
-    {key:'source',label:'Lead Source'},
-    {key:'status',label:'Lead Status'},
-    {key:'dateAdded',label:'Date Added'},
-    {key:'followUpDate',label:'Follow-Up Date'},
-    {key:'value',label:'Estimated Value'},
-    {key:'notes',label:'Notes'},
+    {key:'firstName', label:'First Name',    aliases:['first','firstname','fname','first name','given name','contact first']},
+    {key:'lastName',  label:'Last Name',     aliases:['last','lastname','lname','last name','surname','family name','contact last']},
+    {key:'phone',     label:'Phone',         aliases:['phone','cell','mobile','telephone','phone number','cell phone','ph','contact phone','tel']},
+    {key:'email',     label:'Email',         aliases:['email','e-mail','email address','contact email','mail']},
+    {key:'address',   label:'Address',       aliases:['address','street','location','property address','job address','service address']},
+    {key:'serviceType',label:'Service Type', aliases:['service','type','service type','trade','work type','job type','category']},
+    {key:'source',    label:'Lead Source',   aliases:['source','lead source','how they found us','referral source','where from','marketing source']},
+    {key:'status',    label:'Lead Status',   aliases:['status','lead status','stage','pipeline stage','current status']},
+    {key:'dateAdded', label:'Date Added',    aliases:['date','date added','created','created date','entry date','date entered','lead date','date received']},
+    {key:'followUpDate',label:'Follow-Up Date',aliases:['follow up','followup','follow-up','next contact','callback date','next call','follow up date']},
+    {key:'value',     label:'Estimated Value',aliases:['value','amount','estimate','estimated value','job value','potential value','opportunity value','$','revenue']},
+    {key:'assignedTo',label:'Assigned To',   aliases:['assigned','assigned to','owner','rep','salesperson','agent','estimator']},
+    {key:'notes',     label:'Notes',         aliases:['notes','note','comments','comment','description','details','memo','remarks']},
   ],
   estimate: [
-    {key:'clientName',label:'Client Name'},
-    {key:'serviceType',label:'Service Type'},
-    {key:'amount',label:'Amount'},
-    {key:'status',label:'Status'},
-    {key:'dateCreated',label:'Date Created'},
-    {key:'sentDate',label:'Sent Date'},
-    {key:'followUpDate',label:'Follow-Up Date'},
-    {key:'notes',label:'Notes'},
+    {key:'clientName',  label:'Client Name',   aliases:['client','customer','name','client name','customer name','contact','company']},
+    {key:'linkedLeadId',label:'Lead ID',        aliases:['lead id','lead','lead #','linked lead']},
+    {key:'serviceType', label:'Service Type',   aliases:['service','type','work type','trade','category','service type']},
+    {key:'amount',      label:'Amount',         aliases:['amount','price','cost','total','estimate amount','quote amount','bid amount','$','value','subtotal']},
+    {key:'status',      label:'Status',         aliases:['status','estimate status','stage','state']},
+    {key:'dateCreated', label:'Date Created',   aliases:['date','created','date created','estimate date','quote date','bid date']},
+    {key:'sentDate',    label:'Sent Date',       aliases:['sent','sent date','date sent','submitted']},
+    {key:'followUpDate',label:'Follow-Up Date', aliases:['follow up','followup','follow-up date','next contact']},
+    {key:'approvedDate',label:'Approved Date',  aliases:['approved','approval date','accepted date','won date']},
+    {key:'notes',       label:'Notes',           aliases:['notes','note','comments','description','details','memo']},
   ],
   job: [
-    {key:'clientName',label:'Client Name'},
-    {key:'serviceType',label:'Service Type'},
-    {key:'value',label:'Job Value'},
-    {key:'status',label:'Status'},
-    {key:'startDate',label:'Start Date'},
-    {key:'endDate',label:'End Date'},
-    {key:'assignedTo',label:'Assigned To'},
-    {key:'priority',label:'Priority'},
-    {key:'notes',label:'Notes'},
+    {key:'clientName',    label:'Client Name',   aliases:['client','customer','name','client name','customer name','contact','homeowner']},
+    {key:'linkedEstimateId',label:'Estimate ID', aliases:['estimate id','estimate','estimate #','linked estimate']},
+    {key:'serviceType',   label:'Service Type',  aliases:['service','type','work type','trade','category','job type']},
+    {key:'value',         label:'Job Value',      aliases:['value','amount','price','cost','total','job value','contract amount','$','revenue']},
+    {key:'status',        label:'Status',         aliases:['status','job status','stage','state','progress']},
+    {key:'startDate',     label:'Start Date',     aliases:['start','start date','begin','begin date','scheduled date','job start']},
+    {key:'endDate',       label:'End Date',       aliases:['end','end date','completion','complete date','finish','finish date','completed date']},
+    {key:'assignedTo',    label:'Assigned To',    aliases:['assigned','assigned to','crew','foreman','lead','crew lead','worker','technician']},
+    {key:'priority',      label:'Priority',       aliases:['priority','urgency','importance','level']},
+    {key:'notes',         label:'Notes',           aliases:['notes','note','comments','description','details','memo']},
   ],
   invoice: [
-    {key:'clientName',label:'Client Name'},
-    {key:'amount',label:'Invoice Amount'},
-    {key:'amountPaid',label:'Amount Paid'},
-    {key:'dateSent',label:'Date Sent'},
-    {key:'dueDate',label:'Due Date'},
-    {key:'paymentDate',label:'Payment Date'},
-    {key:'notes',label:'Notes'},
+    {key:'clientName',  label:'Client Name',     aliases:['client','customer','name','client name','customer name','bill to','billed to']},
+    {key:'linkedJobId', label:'Job ID',           aliases:['job id','job','job #','linked job','work order']},
+    {key:'amount',      label:'Invoice Amount',   aliases:['amount','total','invoice amount','invoice total','subtotal','price','cost','$','due','balance due']},
+    {key:'amountPaid',  label:'Amount Paid',      aliases:['paid','amount paid','payment','payment amount','received','collected']},
+    {key:'dateSent',    label:'Date Sent',         aliases:['date sent','sent','invoice date','date','billed date','sent date']},
+    {key:'dueDate',     label:'Due Date',          aliases:['due','due date','payment due','net','terms due','deadline']},
+    {key:'paymentDate', label:'Payment Date',      aliases:['payment date','paid date','date paid','received date','settled']},
+    {key:'status',      label:'Status',            aliases:['status','invoice status','payment status','state']},
+    {key:'notes',       label:'Notes',              aliases:['notes','note','comments','description','memo','remarks']},
   ],
   client: [
-    {key:'name',label:'Client Name'},
-    {key:'phone',label:'Phone'},
-    {key:'email',label:'Email'},
-    {key:'serviceType',label:'Service Type'},
-    {key:'serviceAddress',label:'Service Address'},
-    {key:'billingAddress',label:'Billing Address'},
-    {key:'status',label:'Status'},
-    {key:'notes',label:'Notes'},
+    {key:'name',           label:'Client Name',      aliases:['name','client','customer','full name','client name','customer name','contact name','company']},
+    {key:'phone',          label:'Phone',             aliases:['phone','cell','mobile','telephone','phone number','contact phone','ph']},
+    {key:'email',          label:'Email',             aliases:['email','e-mail','email address','contact email','mail']},
+    {key:'serviceType',    label:'Service Type',      aliases:['service','type','service type','trade','category']},
+    {key:'serviceAddress', label:'Service Address',   aliases:['service address','address','street','location','property','job site','site address']},
+    {key:'billingAddress', label:'Billing Address',   aliases:['billing address','billing','bill to','mailing address','mail to']},
+    {key:'firstJobDate',   label:'First Job Date',    aliases:['first job','first visit','customer since','start date','first date']},
+    {key:'lastJobDate',    label:'Last Job Date',     aliases:['last job','last visit','last service','recent date','last date']},
+    {key:'status',         label:'Status',             aliases:['status','client status','active','state']},
+    {key:'notes',          label:'Notes',              aliases:['notes','note','comments','description','memo']},
   ],
 };
+
+// Smart column matcher — checks key, label, and all aliases
+function smartMatch(headerRaw, field){
+  const h = String(headerRaw).toLowerCase().replace(/[^a-z0-9]/g,'');
+  const checks = [
+    field.key.toLowerCase(),
+    field.label.toLowerCase().replace(/[^a-z0-9]/g,''),
+    ...(field.aliases||[]).map(a=>a.toLowerCase().replace(/[^a-z0-9]/g,''))
+  ];
+  return checks.some(c => h === c || h.includes(c) || c.includes(h));
+}
+
+// Clean and normalize imported values
+function cleanImportValue(val, fieldKey){
+  if(val === null || val === undefined) return '';
+  let v = String(val).trim();
+
+  // Handle Excel date serial numbers
+  if(['dateAdded','followUpDate','startDate','endDate','dateSent','dueDate','paymentDate','dateCreated','sentDate','approvedDate','firstJobDate','lastJobDate'].includes(fieldKey)){
+    // Excel serial date (numbers like 44958)
+    if(/^\d{4,5}$/.test(v)){
+      const d = new Date((parseInt(v) - 25569) * 86400 * 1000);
+      if(!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+    }
+    // Already looks like a date string — normalize to YYYY-MM-DD
+    const parsed = new Date(v);
+    if(!isNaN(parsed.getTime()) && v.length > 4) return parsed.toISOString().split('T')[0];
+    return v;
+  }
+
+  // Handle dollar amounts — strip $, commas
+  if(['value','amount','amountPaid'].includes(fieldKey)){
+    return v.replace(/[$,\s]/g,'') || '';
+  }
+
+  return v;
+}
 
 // Sheet name → BH type mapping
 const SHEET_TYPE_MAP = {
@@ -1948,13 +1993,10 @@ function executeMultiSheetImport(){
     sheet.rows.forEach(row => {
       const record = { id: genId(PREFIX_MAP[type], arr) };
       fields.forEach(field => {
-        // Auto-match by header name
-        const colIdx = sheet.headers.findIndex(h =>
-          String(h).toLowerCase().replace(/[\s_#]/g,'').includes(field.key.toLowerCase()) ||
-          field.label.toLowerCase().replace(/\s/g,'').includes(String(h).toLowerCase().replace(/\s/g,''))
-        );
+        // Smart match using aliases
+        const colIdx = sheet.headers.findIndex(h => smartMatch(h, field));
         if(colIdx >= 0 && row[colIdx] !== '' && row[colIdx] !== null && row[colIdx] !== undefined){
-          record[field.key] = String(row[colIdx]).trim();
+          record[field.key] = cleanImportValue(row[colIdx], field.key);
         }
       });
       const hasData = fields.some(f => record[f.key] && record[f.key] !== '');
@@ -2024,12 +2066,15 @@ function processImportRows(rows, filename){
 }
 
 function autoDetectImportType(headers){
-  const h = headers.join(' ').toLowerCase();
-  if(h.includes('lead') || h.includes('source') || h.includes('follow')) selectImportType('lead', null);
-  else if(h.includes('estimate') || h.includes('quote') || h.includes('bid')) selectImportType('estimate', null);
-  else if(h.includes('job') || h.includes('crew') || h.includes('start date')) selectImportType('job', null);
-  else if(h.includes('invoice') || h.includes('due date') || h.includes('amount paid')) selectImportType('invoice', null);
-  else if(h.includes('client') || h.includes('customer') || h.includes('billing')) selectImportType('client', null);
+  // Score each type by how many fields match
+  const types = ['lead','estimate','job','invoice','client'];
+  const scores = {};
+  types.forEach(type => {
+    const fields = IMPORT_FIELDS[type] || [];
+    scores[type] = fields.filter(f => headers.some(h => smartMatch(h, f))).length;
+  });
+  const best = types.reduce((a,b) => scores[a] >= scores[b] ? a : b);
+  if(scores[best] > 0) selectImportType(best, null);
 }
 
 function selectImportType(type, btn){
@@ -2052,13 +2097,10 @@ function buildMappingUI(type){
   mapSection.style.display = 'block';
 
   mapGrid.innerHTML = fields.map(field => {
-    // Try to auto-match column
-    const autoMatch = headers.findIndex(h =>
-      h.toLowerCase().replace(/[\s_-]/g,'').includes(field.key.toLowerCase()) ||
-      field.label.toLowerCase().replace(/[\s_-]/g,'').includes(h.toLowerCase().replace(/[\s_-]/g,''))
-    );
+    // Smart auto-match using aliases
+    const autoMatch = headers.findIndex(h => smartMatch(h, field));
     return `<div class="map-row">
-      <label>${field.label}</label>
+      <label>${field.label}${autoMatch>=0?` <span style="color:var(--green);font-size:0.7rem;">✓ matched</span>`:''}</label>
       <select id="map-${field.key}">
         <option value="">— Skip this field —</option>
         ${headers.map((h,i)=>`<option value="${i}" ${i===autoMatch&&autoMatch>=0?'selected':''}>${h||'Column '+(i+1)}</option>`).join('')}
@@ -2066,11 +2108,13 @@ function buildMappingUI(type){
     </div>`;
   }).join('');
 
+  const matched = fields.filter(f => headers.findIndex(h=>smartMatch(h,f)) >= 0).length;
+
   // Show action section
   const actionSection = document.getElementById('import-action-section');
   actionSection.style.display = 'flex';
   document.getElementById('import-summary-text').textContent =
-    `Ready to import ${importData.rows.length} ${type}s into Blueprint Hub`;
+    `Ready to import ${importData.rows.length} ${type}s — ${matched}/${fields.length} columns auto-matched`;
 }
 
 function executeImport(){
@@ -2086,8 +2130,8 @@ function executeImport(){
       const sel = document.getElementById('map-'+field.key);
       if(sel && sel.value !== ''){
         const colIdx = parseInt(sel.value);
-        const val = String(row[colIdx] || '').trim();
-        record[field.key] = val;
+        const raw = row[colIdx];
+        record[field.key] = cleanImportValue(raw, field.key);
       }
     });
     // Skip if completely empty
