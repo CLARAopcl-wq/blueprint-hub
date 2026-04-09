@@ -1969,9 +1969,16 @@ function processMultiSheetWorkbook(wb, filename){
     if(!type) return; // skip Dashboard, Settings etc.
     const ws = wb.Sheets[name];
     const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-    const dataRows = rows.slice(1).filter(r => r.some(c => c !== '' && c !== null));
+    // Find real header row
+    let hIdx = 0;
+    for(let i = 0; i < Math.min(rows.length, 5); i++){
+      if(rows[i].some(c => c !== '' && c !== null)) { hIdx = i; break; }
+    }
+    const dataRows = rows.slice(hIdx + 1).filter(r =>
+      r.some(c => c !== '' && c !== null) && !isHeaderLikeRow(r)
+    );
     if(dataRows.length > 0){
-      detected.push({ sheetName: name, type, headers: rows[0] || [], rows: dataRows });
+      detected.push({ sheetName: name, type, headers: rows[hIdx] || [], rows: dataRows });
     }
   });
 
@@ -2088,12 +2095,34 @@ function parseImportCSV(text, filename){
   processImportRows(rows, filename);
 }
 
+function isHeaderLikeRow(row){
+  // Returns true if a row looks like column headers rather than real data
+  const vals = row.map(v => String(v||'').toLowerCase().trim());
+  const headerKeywords = ['id','name','client','customer','phone','email','status','date','amount','type','service','source','notes','address','value','price','cost','assigned','priority','job','lead','estimate','invoice','follow'];
+  const matches = vals.filter(v => v && headerKeywords.some(k => v === k || v.includes(k)));
+  // If more than half the non-empty cells look like headers, it's a header row
+  const nonEmpty = vals.filter(v => v).length;
+  return nonEmpty > 0 && (matches.length / nonEmpty) > 0.5;
+}
+
 function processImportRows(rows, filename){
   if(!rows || rows.length < 2){ showToast('⚠️ File appears empty or has no data rows.'); return; }
 
-  // Find header row (first non-empty row)
-  const headerRow = rows[0].map(h => String(h).trim());
-  const dataRows = rows.slice(1).filter(r => r.some(c => c !== '' && c !== null && c !== undefined));
+  // Find the real header row — first non-empty row
+  let headerIdx = 0;
+  for(let i = 0; i < Math.min(rows.length, 5); i++){
+    if(rows[i].some(c => c !== '' && c !== null)) { headerIdx = i; break; }
+  }
+  const headerRow = rows[headerIdx].map(h => String(h||'').trim());
+
+  // Data rows = everything after header, skip rows that look like sub-headers
+  const dataRows = rows.slice(headerIdx + 1).filter(r => {
+    // Must have at least one non-empty cell
+    if(!r.some(c => c !== '' && c !== null && c !== undefined)) return false;
+    // Skip rows that look like another header/sub-header row
+    if(isHeaderLikeRow(r)) return false;
+    return true;
+  });
 
   importData.headers = headerRow;
   importData.rows = dataRows;
