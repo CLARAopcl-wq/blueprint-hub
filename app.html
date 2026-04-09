@@ -384,6 +384,7 @@ tr:hover td{background:rgba(255,255,255,0.02);}
       <div class="nav-item" id="nav-followups" onclick="showPage('followups',this);closeSidebar()"><span class="nav-icon">🔔</span>Follow-Ups</div>
       <div class="nav-item" onclick="showPage('clients',this);closeSidebar()"><span class="nav-icon">👥</span>Clients</div>
       <div class="nav-item" onclick="showPage('summaries',this);closeSidebar()"><span class="nav-icon">📅</span>Summaries</div>
+      <div class="nav-item" onclick="showPage('import',this);closeSidebar()"><span class="nav-icon">📥</span>Import Data</div>
       <div class="nav-item" onclick="showPage('qbexport',this);closeSidebar()"><span class="nav-icon">📤</span>QuickBooks</div>
       <div class="nav-item" onclick="showPage('settings',this);closeSidebar()"><span class="nav-icon">⚙️</span>Settings</div>
     </div>
@@ -483,6 +484,95 @@ tr:hover td{background:rgba(255,255,255,0.02);}
           <button class="btn-generate" onclick="generateSummary(false)">📅 Generate This Month's Summary</button>
         </div>
         <div id="summaries-list"></div>
+      </div>
+
+      <!-- IMPORT DATA -->
+      <div id="page-import" class="page">
+        <div class="page-title">📥 Import Data</div>
+
+        <!-- Step 1: Upload -->
+        <div id="import-step-1">
+          <div style="background:var(--dark2);border:1px solid var(--border);border-radius:14px;padding:28px;text-align:center;margin-bottom:20px;">
+            <div style="font-size:2.5rem;margin-bottom:12px;">📂</div>
+            <div style="font-size:1rem;font-weight:700;margin-bottom:8px;">Upload a Spreadsheet or CSV</div>
+            <div style="color:var(--muted);font-size:0.85rem;margin-bottom:20px;">Supports .csv, .xlsx, and .xls files from any app — Excel, Google Sheets, QuickBooks, or your own templates.</div>
+            <label style="cursor:pointer;">
+              <div style="background:var(--yellow);color:#000;font-weight:800;padding:12px 28px;border-radius:8px;display:inline-block;font-size:0.9rem;">Choose File</div>
+              <input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" style="display:none;" onchange="handleImportFile(this)"/>
+            </label>
+            <div style="margin-top:12px;color:var(--muted);font-size:0.78rem;">or drag and drop a file onto this page</div>
+          </div>
+
+          <!-- What you can import -->
+          <div style="background:var(--dark2);border:1px solid var(--border);border-radius:14px;padding:20px;">
+            <div style="font-weight:700;margin-bottom:14px;">What you can import:</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">
+              <div style="background:var(--dark3);border-radius:8px;padding:12px;text-align:center;font-size:0.85rem;"><div style="font-size:1.2rem;margin-bottom:4px;">📋</div>Leads</div>
+              <div style="background:var(--dark3);border-radius:8px;padding:12px;text-align:center;font-size:0.85rem;"><div style="font-size:1.2rem;margin-bottom:4px;">📐</div>Estimates</div>
+              <div style="background:var(--dark3);border-radius:8px;padding:12px;text-align:center;font-size:0.85rem;"><div style="font-size:1.2rem;margin-bottom:4px;">🏗️</div>Jobs</div>
+              <div style="background:var(--dark3);border-radius:8px;padding:12px;text-align:center;font-size:0.85rem;"><div style="font-size:1.2rem;margin-bottom:4px;">🧾</div>Invoices</div>
+              <div style="background:var(--dark3);border-radius:8px;padding:12px;text-align:center;font-size:0.85rem;"><div style="font-size:1.2rem;margin-bottom:4px;">👥</div>Clients</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Map columns -->
+        <div id="import-step-2" style="display:none;">
+          <div style="background:var(--dark2);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+              <div>
+                <div style="font-weight:800;font-size:1rem;">Step 1 — What are you importing?</div>
+                <div style="color:var(--muted);font-size:0.82rem;margin-top:4px;" id="import-file-info"></div>
+              </div>
+              <button onclick="resetImport()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.82rem;">✕ Start Over</button>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:10px;">
+              <button class="import-type-btn" onclick="selectImportType('lead',this)">📋 Leads</button>
+              <button class="import-type-btn" onclick="selectImportType('estimate',this)">📐 Estimates</button>
+              <button class="import-type-btn" onclick="selectImportType('job',this)">🏗️ Jobs</button>
+              <button class="import-type-btn" onclick="selectImportType('invoice',this)">🧾 Invoices</button>
+              <button class="import-type-btn" onclick="selectImportType('client',this)">👥 Clients</button>
+            </div>
+          </div>
+
+          <!-- Preview -->
+          <div style="background:var(--dark2);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:20px;">
+            <div style="font-weight:800;font-size:1rem;margin-bottom:6px;">Step 2 — Preview your file</div>
+            <div style="color:var(--muted);font-size:0.82rem;margin-bottom:14px;" id="import-preview-count"></div>
+            <div style="overflow-x:auto;border-radius:8px;border:1px solid var(--border);max-height:200px;overflow-y:auto;">
+              <table style="width:100%;border-collapse:collapse;font-size:0.78rem;">
+                <thead id="import-preview-head"></thead>
+                <tbody id="import-preview-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Column mapping -->
+          <div id="import-mapping-section" style="display:none;background:var(--dark2);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:20px;">
+            <div style="font-weight:800;font-size:1rem;margin-bottom:6px;">Step 3 — Map your columns</div>
+            <div style="color:var(--muted);font-size:0.82rem;margin-bottom:16px;">Match your spreadsheet columns to Blueprint Hub fields. Skip any that don't apply.</div>
+            <div id="import-mapping-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"></div>
+          </div>
+
+          <!-- Import button -->
+          <div id="import-action-section" style="display:none;background:var(--dark2);border:1px solid var(--border);border-radius:14px;padding:20px;display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+              <div>
+                <div style="font-weight:700;" id="import-summary-text"></div>
+                <div style="color:var(--muted);font-size:0.82rem;margin-top:4px;">Existing records with matching IDs will be skipped.</div>
+              </div>
+              <button class="btn-add" onclick="executeImport()" id="import-execute-btn">⚡ Import Now</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Success -->
+        <div id="import-step-3" style="display:none;text-align:center;padding:48px 20px;">
+          <div style="font-size:3rem;margin-bottom:16px;">✅</div>
+          <div style="font-size:1.2rem;font-weight:800;margin-bottom:8px;" id="import-success-text"></div>
+          <div style="color:var(--muted);font-size:0.88rem;margin-bottom:24px;">All records have been added to Blueprint Hub.</div>
+          <button class="btn-add" onclick="resetImport()">Import Another File</button>
+        </div>
       </div>
 
       <!-- QUICKBOOKS EXPORT -->
@@ -1179,6 +1269,7 @@ function render(page){
   else if(page==='followups')renderFollowups();
   else if(page==='clients')renderClients();
   else if(page==='summaries')renderSummaries();
+  else if(page==='import')renderImport();
   else if(page==='qbexport')renderQBExport();
   else if(page==='settings')renderSettings();
 }
@@ -1661,6 +1752,248 @@ function renderCrewLog() {
       <div class="crew-log-meta">Job: ${l.jobId} ${l.jobClient?'('+l.jobClient+')':''} · ${new Date(l.sentAt).toLocaleDateString()} ${new Date(l.sentAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
     </div>`).join('');
 }
+
+// ── IMPORT DATA ───────────────────────────────────────────────────────────────
+let importData = { rows:[], headers:[], type:null };
+
+const IMPORT_FIELDS = {
+  lead: [
+    {key:'firstName',label:'First Name'},
+    {key:'lastName',label:'Last Name'},
+    {key:'phone',label:'Phone'},
+    {key:'email',label:'Email'},
+    {key:'address',label:'Address'},
+    {key:'serviceType',label:'Service Type'},
+    {key:'source',label:'Lead Source'},
+    {key:'status',label:'Lead Status'},
+    {key:'dateAdded',label:'Date Added'},
+    {key:'followUpDate',label:'Follow-Up Date'},
+    {key:'value',label:'Estimated Value'},
+    {key:'notes',label:'Notes'},
+  ],
+  estimate: [
+    {key:'clientName',label:'Client Name'},
+    {key:'serviceType',label:'Service Type'},
+    {key:'amount',label:'Amount'},
+    {key:'status',label:'Status'},
+    {key:'dateCreated',label:'Date Created'},
+    {key:'sentDate',label:'Sent Date'},
+    {key:'followUpDate',label:'Follow-Up Date'},
+    {key:'notes',label:'Notes'},
+  ],
+  job: [
+    {key:'clientName',label:'Client Name'},
+    {key:'serviceType',label:'Service Type'},
+    {key:'value',label:'Job Value'},
+    {key:'status',label:'Status'},
+    {key:'startDate',label:'Start Date'},
+    {key:'endDate',label:'End Date'},
+    {key:'assignedTo',label:'Assigned To'},
+    {key:'priority',label:'Priority'},
+    {key:'notes',label:'Notes'},
+  ],
+  invoice: [
+    {key:'clientName',label:'Client Name'},
+    {key:'amount',label:'Invoice Amount'},
+    {key:'amountPaid',label:'Amount Paid'},
+    {key:'dateSent',label:'Date Sent'},
+    {key:'dueDate',label:'Due Date'},
+    {key:'paymentDate',label:'Payment Date'},
+    {key:'notes',label:'Notes'},
+  ],
+  client: [
+    {key:'name',label:'Client Name'},
+    {key:'phone',label:'Phone'},
+    {key:'email',label:'Email'},
+    {key:'serviceType',label:'Service Type'},
+    {key:'serviceAddress',label:'Service Address'},
+    {key:'billingAddress',label:'Billing Address'},
+    {key:'status',label:'Status'},
+    {key:'notes',label:'Notes'},
+  ],
+};
+
+function handleImportFile(input){
+  const file = input.files[0];
+  if(!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  if(ext === 'csv'){
+    const reader = new FileReader();
+    reader.onload = (e) => parseImportCSV(e.target.result, file.name);
+    reader.readAsText(file);
+  } else if(ext === 'xlsx' || ext === 'xls'){
+    // Use SheetJS from CDN
+    if(typeof XLSX === 'undefined'){
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+      script.onload = () => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+          processImportRows(data, file.name);
+        };
+        reader.readAsArrayBuffer(file);
+      };
+      document.head.appendChild(script);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        processImportRows(data, file.name);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  } else {
+    showToast('⚠️ Please upload a .csv, .xlsx, or .xls file.');
+  }
+}
+
+function parseImportCSV(text, filename){
+  const lines = text.split('\n').filter(l=>l.trim());
+  const rows = lines.map(line => {
+    const result = [];
+    let current = '', inQuotes = false;
+    for(let i=0;i<line.length;i++){
+      const ch = line[i];
+      if(ch==='"'){ inQuotes=!inQuotes; }
+      else if(ch===','&&!inQuotes){ result.push(current.trim()); current=''; }
+      else { current+=ch; }
+    }
+    result.push(current.trim());
+    return result;
+  });
+  processImportRows(rows, filename);
+}
+
+function processImportRows(rows, filename){
+  if(!rows || rows.length < 2){ showToast('⚠️ File appears empty or has no data rows.'); return; }
+
+  // Find header row (first non-empty row)
+  const headerRow = rows[0].map(h => String(h).trim());
+  const dataRows = rows.slice(1).filter(r => r.some(c => c !== '' && c !== null && c !== undefined));
+
+  importData.headers = headerRow;
+  importData.rows = dataRows;
+  importData.type = null;
+
+  // Show step 2
+  document.getElementById('import-step-1').style.display = 'none';
+  document.getElementById('import-step-2').style.display = 'block';
+  document.getElementById('import-step-3').style.display = 'none';
+  document.getElementById('import-file-info').textContent = `${filename} — ${dataRows.length} rows detected`;
+
+  // Preview table
+  document.getElementById('import-preview-count').textContent = `Showing first 5 of ${dataRows.length} rows`;
+  document.getElementById('import-preview-head').innerHTML =
+    '<tr>'+headerRow.map(h=>`<th style="background:var(--dark3);padding:8px 10px;text-align:left;font-size:0.75rem;color:var(--muted);white-space:nowrap;">${h||'(empty)'}</th>`).join('')+'</tr>';
+  document.getElementById('import-preview-body').innerHTML =
+    dataRows.slice(0,5).map(row=>'<tr>'+row.map(cell=>`<td style="padding:7px 10px;border-top:1px solid var(--border);font-size:0.78rem;white-space:nowrap;">${cell||''}</td>`).join('')+'</tr>').join('');
+
+  // Auto-detect type from headers
+  autoDetectImportType(headerRow);
+}
+
+function autoDetectImportType(headers){
+  const h = headers.join(' ').toLowerCase();
+  if(h.includes('lead') || h.includes('source') || h.includes('follow')) selectImportType('lead', null);
+  else if(h.includes('estimate') || h.includes('quote') || h.includes('bid')) selectImportType('estimate', null);
+  else if(h.includes('job') || h.includes('crew') || h.includes('start date')) selectImportType('job', null);
+  else if(h.includes('invoice') || h.includes('due date') || h.includes('amount paid')) selectImportType('invoice', null);
+  else if(h.includes('client') || h.includes('customer') || h.includes('billing')) selectImportType('client', null);
+}
+
+function selectImportType(type, btn){
+  importData.type = type;
+  document.querySelectorAll('.import-type-btn').forEach(b=>b.classList.remove('selected'));
+  if(btn) btn.classList.add('selected');
+  else {
+    document.querySelectorAll('.import-type-btn').forEach(b=>{
+      if(b.getAttribute('onclick').includes(`'${type}'`)) b.classList.add('selected');
+    });
+  }
+  buildMappingUI(type);
+}
+
+function buildMappingUI(type){
+  const fields = IMPORT_FIELDS[type] || [];
+  const headers = importData.headers;
+  const mapSection = document.getElementById('import-mapping-section');
+  const mapGrid = document.getElementById('import-mapping-grid');
+  mapSection.style.display = 'block';
+
+  mapGrid.innerHTML = fields.map(field => {
+    // Try to auto-match column
+    const autoMatch = headers.findIndex(h =>
+      h.toLowerCase().replace(/[\s_-]/g,'').includes(field.key.toLowerCase()) ||
+      field.label.toLowerCase().replace(/[\s_-]/g,'').includes(h.toLowerCase().replace(/[\s_-]/g,''))
+    );
+    return `<div class="map-row">
+      <label>${field.label}</label>
+      <select id="map-${field.key}">
+        <option value="">— Skip this field —</option>
+        ${headers.map((h,i)=>`<option value="${i}" ${i===autoMatch&&autoMatch>=0?'selected':''}>${h||'Column '+(i+1)}</option>`).join('')}
+      </select>
+    </div>`;
+  }).join('');
+
+  // Show action section
+  const actionSection = document.getElementById('import-action-section');
+  actionSection.style.display = 'flex';
+  document.getElementById('import-summary-text').textContent =
+    `Ready to import ${importData.rows.length} ${type}s into Blueprint Hub`;
+}
+
+function executeImport(){
+  const type = importData.type;
+  if(!type){ showToast('⚠️ Select a data type first'); return; }
+  const fields = IMPORT_FIELDS[type];
+  const arr = db[TYPE_MAP[type]];
+  let imported = 0, skipped = 0;
+
+  importData.rows.forEach(row => {
+    const record = { id: genId(PREFIX_MAP[type], arr) };
+    fields.forEach(field => {
+      const sel = document.getElementById('map-'+field.key);
+      if(sel && sel.value !== ''){
+        const colIdx = parseInt(sel.value);
+        const val = String(row[colIdx] || '').trim();
+        record[field.key] = val;
+      }
+    });
+    // Skip if completely empty
+    const hasData = fields.some(f => record[f.key] && record[f.key] !== '');
+    if(hasData){ arr.push(record); imported++; }
+    else skipped++;
+  });
+
+  save();
+  renderAll();
+
+  // Show success
+  document.getElementById('import-step-2').style.display = 'none';
+  document.getElementById('import-step-3').style.display = 'block';
+  document.getElementById('import-success-text').textContent =
+    `${imported} ${type}${imported!==1?'s':''} imported successfully!${skipped>0?' ('+skipped+' empty rows skipped)':''}`;
+
+  showToast(`✅ ${imported} records imported!`);
+}
+
+function resetImport(){
+  importData = { rows:[], headers:[], type:null };
+  document.getElementById('import-file-input').value = '';
+  document.getElementById('import-step-1').style.display = 'block';
+  document.getElementById('import-step-2').style.display = 'none';
+  document.getElementById('import-step-3').style.display = 'none';
+  document.getElementById('import-mapping-section').style.display = 'none';
+  document.getElementById('import-action-section').style.display = 'none';
+}
+
+function renderImport(){ /* static page, no dynamic render needed */ }
 
 // ── QUICKBOOKS EXPORT ─────────────────────────────────────────────────────────
 function renderQBExport(){
