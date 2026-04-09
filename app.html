@@ -1842,16 +1842,23 @@ function cleanImportValue(val, fieldKey){
   let v = String(val).trim();
   if(v === '') return '';
 
-  // ── PHONE: normalize to (XXX) XXX-XXXX ──────────────────────────────────
+  // ── PHONE: only accept 7-10 digit numbers, normalize to readable format ──
   if(PHONE_FIELDS.includes(fieldKey)){
     const digits = v.replace(/\D/g,'');
-    // Strip leading country code 1
+    // Strip leading country code 1 if 11 digits
     const d = digits.startsWith('1') && digits.length === 11 ? digits.slice(1) : digits;
+    // Must be at least 7 digits to be a real phone number
+    if(d.length < 7) return '';
+    if(d.length === 7){
+      // Local 7-digit: XXX-XXXX
+      return `${d.slice(0,3)}-${d.slice(3)}`;
+    }
     if(d.length === 10){
+      // Full US number: (XXX) XXX-XXXX
       return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
     }
-    // Partial number — return as-is cleaned
-    return d.length > 0 ? d : v;
+    // Between 7-10 — just format as-is with dashes
+    return d;
   }
 
   // ── DATES: normalize to YYYY-MM-DD ───────────────────────────────────────
@@ -1895,7 +1902,7 @@ function columnLooksLike(values){
   }).length;
   const phoneHits = sample.filter(v => {
     const d = String(v).replace(/\D/g,'');
-    return d.length >= 10;
+    return d.length >= 7; // must have at least 7 digits to count as a phone number
   }).length;
   if(dateHits >= sample.length * 0.6) return 'date';
   if(phoneHits >= sample.length * 0.6) return 'phone';
