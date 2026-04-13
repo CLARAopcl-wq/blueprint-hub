@@ -864,6 +864,7 @@ async function onSignedIn(user) {
   const email = user.email || '';
   document.getElementById('topbar-user').textContent = '👤 ' + (email.split('@')[0]);
   await loadUserData();
+  ANTHROPIC_KEY = db.settings.anthropicKey || '';
   hideLoader();
   document.getElementById('app').style.display='flex';
   renderAll();
@@ -1201,6 +1202,20 @@ function renderSettings(){
     {key:'followUpStatuses',label:'Follow-Up Statuses'},
   ];
 
+  // AI Key section
+  ANTHROPIC_KEY = s.anthropicKey || '';
+  const aiSection = `<div class="settings-card" style="grid-column:1/-1;background:rgba(108,99,255,0.05);border-color:rgba(108,99,255,0.2);">
+    <h3>🤖 AI Configuration</h3>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px;">Add your Anthropic API key to enable AI-powered Quick Entry. Your key is stored locally and never shared.</p>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <input type="password" id="anthropic-key-input" placeholder="sk-ant-api03-..." value="${s.anthropicKey||''}"
+        style="flex:1;background:var(--dark3);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-size:0.85rem;outline:none;font-family:monospace;"
+        onfocus="this.type='text'" onblur="this.type='password'"/>
+      <button onclick="saveAnthropicKey()" style="background:var(--yellow);color:#000;border:none;padding:9px 16px;border-radius:7px;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;">Save Key</button>
+    </div>
+    ${s.anthropicKey ? '<div style="color:var(--green);font-size:0.78rem;margin-top:8px;">✅ AI key configured — Quick Entry is powered by Claude</div>' : '<div style="color:var(--muted);font-size:0.78rem;margin-top:8px;">⚠️ No key set — Quick Entry uses basic pattern matching</div>'}
+  </div>`;
+
   // Team Members section (special — includes phone numbers)
   const teamSection = `<div class="settings-card" style="grid-column:1/-1;">
     <h3>👥 Team Members & Phone Numbers</h3>
@@ -1222,7 +1237,7 @@ function renderSettings(){
     <div style="color:var(--muted);font-size:0.75rem;margin-top:10px;">📱 Add phone numbers to enable crew text notifications</div>
   </div>`;
 
-  document.getElementById('settings-grid').innerHTML = teamSection + sections.map(sec=>`
+  document.getElementById('settings-grid').innerHTML = aiSection + teamSection + sections.map(sec=>`
     <div class="settings-card">
       <h3>${sec.label}</h3>
       <div class="settings-tags" id="tags-${sec.key}">
@@ -1233,6 +1248,15 @@ function renderSettings(){
         <button onclick="addTag('${sec.key}')">+</button>
       </div>
     </div>`).join('');
+}
+
+function saveAnthropicKey(){
+  const key = document.getElementById('anthropic-key-input').value.trim();
+  db.settings.anthropicKey = key;
+  ANTHROPIC_KEY = key;
+  save();
+  renderSettings();
+  showToast(key ? '✅ AI key saved — Quick Entry now uses Claude!' : '⚠️ AI key cleared');
 }
 
 function updateMemberPhone(name, phone){
@@ -1428,6 +1452,9 @@ function deleteRecord(collection,id){
 }
 
 // ── QUICK ENTRY AI ────────────────────────────────────────────────────────────
+// AI key stored in app settings — set via Settings tab
+let ANTHROPIC_KEY = '';
+
 let pendingQuickRecord = null;
 let isRecording = false;
 let recognition = null;
@@ -1578,25 +1605,140 @@ function parseQuickEntry(text) {
   return result;
 }
 
-function processQuickEntry() {
+async function processQuickEntry() {
   const input = document.getElementById('quick-input');
   const text = input.value.trim();
   if(!text) return;
 
-  const result = parseQuickEntry(text);
-  pendingQuickRecord = result;
-
-  document.getElementById('quick-result-content').innerHTML = result.summary;
+  // Show loading state
+  document.getElementById('quick-result-content').innerHTML = `<span style="color:var(--muted);font-style:italic;">🤖 AI is thinking...</span>`;
   document.getElementById('quick-result').classList.add('show');
+  document.querySelector('.quick-result-actions').innerHTML = '';
 
-  // Change actions if nothing detected
-  if(!result.type) {
-    document.querySelector('.quick-result-actions').innerHTML = `<button class="btn-discard" onclick="discardQuickEntry()">Got it</button>`;
-  } else {
-    document.querySelector('.quick-result-actions').innerHTML = `
-      <button class="btn-confirm" onclick="confirmQuickEntry()">✓ Save It</button>
-      <button class="btn-discard" onclick="discardQuickEntry()">✕ Discard</button>`;
+  try {
+    const result = await parseQuickEntryAI(text);
+    pendingQuickRecord = result;
+    document.getElementById('quick-result-content').innerHTML = result.summary;
+    if(!result.type) {
+      document.querySelector('.quick-result-actions').innerHTML = `<button class="btn-discard" onclick="discardQuickEntry()">Got it</button>`;
+    } else {
+      document.querySelector('.quick-result-actions').innerHTML = `
+        <button class="btn-confirm" onclick="confirmQuickEntry()">✓ Save It</button>
+        <button class="btn-discard" onclick="discardQuickEntry()">✕ Discard</button>`;
+    }
+  } catch(e) {
+    // Fallback to pattern matching if AI fails
+    const result = parseQuickEntry(text);
+    pendingQuickRecord = result;
+    document.getElementById('quick-result-content').innerHTML = result.summary;
+    if(!result.type) {
+      document.querySelector('.quick-result-actions').innerHTML = `<button class="btn-discard" onclick="discardQuickEntry()">Got it</button>`;
+    } else {
+      document.querySelector('.quick-result-actions').innerHTML = `
+        <button class="btn-confirm" onclick="confirmQuickEntry()">✓ Save It</button>
+        <button class="btn-discard" onclick="discardQuickEntry()">✕ Discard</button>`;
+    }
   }
+}
+
+async function parseQuickEntryAI(text) {
+  if(!ANTHROPIC_KEY) return parseQuickEntry(text); // fallback to pattern matching
+  const today = new Date().toISOString().split('T')[0];
+  const serviceTypes = (db.settings.serviceTypes || []).join(', ');
+  const leadSources = (db.settings.leadSources || []).join(', ');
+  const teamMembers = (db.settings.teamMembers || []).join(', ');
+  const jobStatuses = (db.settings.jobStatuses || []).join(', ');
+
+  const systemPrompt = `You are a data extraction assistant for Blueprint Hub Operations, a contractor business management app. 
+Today's date is ${today}.
+
+Available service types: ${serviceTypes}
+Available lead sources: ${leadSources}  
+Available team members: ${teamMembers}
+Job statuses: ${jobStatuses}
+
+Extract structured data from the contractor's natural language input and return a JSON object.
+
+Detect the record type: "lead", "estimate", "job", "invoice", "followup", or "client".
+Return null if you cannot determine what to create.
+
+Rules:
+- Names: extract first and last name separately when possible
+- Phones: format as (XXX) XXX-XXXX if 10 digits detected
+- Dates: return as YYYY-MM-DD. "tomorrow" = ${new Date(Date.now()+86400000).toISOString().split('T')[0]}, "next week" = ${new Date(Date.now()+7*86400000).toISOString().split('T')[0]}
+- Money: strip $ and commas, return as number string
+- Match service types to the closest available option
+- Match lead sources to closest available option
+
+Return ONLY valid JSON in this exact format:
+{
+  "type": "lead|estimate|job|invoice|followup|client|null",
+  "data": { ...fields matching the record type },
+  "summary": "Human-readable HTML summary of what will be created"
+}
+
+For "lead" data fields: firstName, lastName, phone, email, address, serviceType, source, status, dateAdded, followUpDate, value, notes
+For "estimate" data fields: clientName, serviceType, amount, status, dateCreated, followUpDate, notes
+For "job" data fields: clientName, serviceType, value, status, startDate, endDate, assignedTo, priority, notes
+For "invoice" data fields: clientName, amount, amountPaid, dateSent, dueDate, notes
+For "followup" data fields: name, relatedType, dueDate, reason, status, owner, notes
+For "client" data fields: name, phone, email, serviceType, serviceAddress, status, notes`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': ANTHROPIC_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5',
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: text }]
+    })
+  });
+
+  if(!response.ok) throw new Error('API call failed');
+
+  const data = await response.json();
+  const rawText = data.content[0].text.trim();
+
+  // Parse JSON from response
+  const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+  if(!jsonMatch) throw new Error('No JSON in response');
+
+  const parsed = JSON.parse(jsonMatch[0]);
+
+  if(!parsed.type || parsed.type === 'null') {
+    return {
+      type: null,
+      data: {},
+      summary: `❓ Couldn't figure out what to create from that. Try being more specific, like:<br><br>
+        • "New lead John Smith, roofing, called from Google, 555-1234"<br>
+        • "Job done for Maria, send invoice $4500"<br>
+        • "Follow up with Bob Johnson tomorrow"<br>
+        • "New estimate for Dave, concrete, $8000"`
+    };
+  }
+
+  // Build a clean summary from the parsed data
+  const typeLabels = {lead:'📋 New Lead', estimate:'📐 New Estimate', job:'🏗️ New Job', invoice:'🧾 New Invoice', followup:'🔔 Follow-Up', client:'👥 New Client'};
+  const label = typeLabels[parsed.type] || parsed.type;
+
+  const summaryRows = Object.entries(parsed.data)
+    .filter(([k,v]) => v && String(v).trim())
+    .map(([k,v]) => {
+      const keyLabel = k.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase());
+      return `<strong>${keyLabel}:</strong> ${v}`;
+    }).join('<br>');
+
+  if(!parsed.summary) {
+    parsed.summary = `${label}<br>${summaryRows}`;
+  }
+
+  return parsed;
 }
 
 function confirmQuickEntry() {
