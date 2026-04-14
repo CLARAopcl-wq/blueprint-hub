@@ -2253,13 +2253,74 @@ function selectImportType(type, btn){
   if(btn) btn.classList.add('selected');
   else {
     document.querySelectorAll('.import-type-btn').forEach(b=>{
-      if(b.getAttribute('onclick').includes(`'${type}'`)) b.classList.add('selected');
+      if(b.getAttribute('onclick') && b.getAttribute('onclick').includes(`'${type}'`)) b.classList.add('selected');
     });
   }
-  buildMappingUI(type);
+  buildMappingUIWithAI(type);
 }
 
-function buildMappingUI(type){
+async function buildMappingUIWithAI(type){
+  const mapSection = document.getElementById('import-mapping-section');
+  const mapGrid = document.getElementById('import-mapping-grid');
+  mapSection.style.display = 'block';
+  mapGrid.innerHTML = `<div style="grid-column:1/-1;color:var(--muted);font-size:0.85rem;padding:12px 0;display:flex;align-items:center;gap:10px;"><span style="font-size:1.2rem;">🤖</span> AI is mapping your columns...</div>`;
+
+  // Show action section hidden during AI load
+  document.getElementById('import-action-section').style.display = 'none';
+
+  try {
+    const response = await fetch(AI_PROXY_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({
+        mode: 'import-map',
+        targetType: type,
+        headers: importData.headers,
+        sampleRows: importData.rows.slice(0, 3),
+        settings: {
+          serviceTypes: db.settings.serviceTypes || [],
+          leadSources: db.settings.leadSources || [],
+          teamMembers: db.settings.teamMembers || [],
+        }
+      })
+    });
+
+    if(!response.ok) throw new Error('AI mapping failed');
+    const mapping = await response.json();
+
+    // Store AI mappings
+    importData.aiMappings = mapping.mappings || {};
+    importData.dateColumns = mapping.dateColumns || [];
+    importData.moneyColumns = mapping.moneyColumns || [];
+
+    // Build the UI with AI-suggested mappings
+    buildMappingUI(type, mapping.mappings);
+
+    // Show confidence indicator
+    const confidence = mapping.confidence || 'medium';
+    const confColor = confidence === 'high' ? 'var(--green)' : confidence === 'medium' ? 'var(--yellow)' : 'var(--red)';
+    const confText = confidence === 'high' ? '✅ High confidence — most columns mapped automatically' :
+                     confidence === 'medium' ? '⚠️ Medium confidence — review mappings below' :
+                     '❗ Low confidence — please review all mappings carefully';
+    mapGrid.insertAdjacentHTML('beforebegin', `
+      <div style="grid-column:1/-1;background:rgba(0,0,0,0.2);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:0.82rem;color:${confColor};">
+        🤖 ${confText}${mapping.notes ? '<br><span style="color:var(--muted);">'+mapping.notes+'</span>' : ''}
+      </div>`);
+
+  } catch(e) {
+    // Fallback to manual mapping
+    buildMappingUI(type, {});
+    mapGrid.insertAdjacentHTML('beforebegin', `
+      <div style="grid-column:1/-1;background:rgba(224,82,82,0.1);border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:0.82rem;color:var(--muted);">
+        AI mapping unavailable — please map columns manually below.
+      </div>`);
+  }
+}
+
+function buildMappingUI(type, aiMappings={}){
   const fields = IMPORT_FIELDS[type] || [];
   const headers = importData.headers;
   const rows = importData.rows;
@@ -2306,12 +2367,19 @@ function buildMappingUI(type){
   }
 
   mapGrid.innerHTML = fields.map(field => {
-    const autoMatch = findBestMatch(field);
+    // AI mapping takes priority, then smart match fallback
+    const aiMatch = (aiMappings && aiMappings[field.key] !== undefined && aiMappings[field.key] >= 0)
+      ? aiMappings[field.key] : -1;
+    const autoMatch = aiMatch >= 0 ? aiMatch : findBestMatch(field);
+    const isAI = aiMatch >= 0;
     const isDateField = DATE_FIELDS.includes(field.key);
     const isPhoneField = PHONE_FIELDS.includes(field.key);
     const fieldIcon = isDateField ? '📅 ' : isPhoneField ? '📱 ' : '';
+    const matchLabel = isAI
+      ? ` <span style="color:var(--accent2);font-size:0.7rem;">🤖 AI matched</span>`
+      : autoMatch>=0 ? ` <span style="color:var(--green);font-size:0.7rem;">✓ matched</span>` : '';
     return `<div class="map-row">
-      <label>${fieldIcon}${field.label}${autoMatch>=0?` <span style="color:var(--green);font-size:0.7rem;">✓ auto-matched</span>`:''}</label>
+      <label>${fieldIcon}${field.label}${matchLabel}</label>
       <select id="map-${field.key}">
         <option value="">— Skip this field —</option>
         ${colLabels.map((lbl,i)=>`<option value="${i}" ${i===autoMatch?'selected':''}>${lbl}</option>`).join('')}
@@ -2319,12 +2387,16 @@ function buildMappingUI(type){
     </div>`;
   }).join('');
 
-  const matched = fields.filter(f => findBestMatch(f) >= 0).length;
+  const aiMatched = Object.values(aiMappings||{}).filter(v => (v as number) >= 0).length;
+  const matched = fields.filter(f => {
+    const ai = aiMappings?.[f.key];
+    return (ai !== undefined && ai >= 0) || findBestMatch(f) >= 0;
+  }).length;
 
   const actionSection = document.getElementById('import-action-section');
   actionSection.style.display = 'flex';
   document.getElementById('import-summary-text').textContent =
-    `Ready to import ${importData.rows.length} ${type}${importData.rows.length!==1?'s':''} — ${matched}/${fields.length} columns auto-matched`;
+    `Ready to import ${importData.rows.length} ${type}${importData.rows.length!==1?'s':''} — ${matched}/${fields.length} columns mapped${aiMatched>0?' ('+aiMatched+' by AI)':''}`;
 }
 
 function executeImport(){
