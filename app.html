@@ -878,10 +878,23 @@ async function onSignedIn(user) {
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='none';
 
-  const { data: { session } } = await _supa.auth.getSession();
-  if(session && session.user) {
-    await onSignedIn(session.user);
-  } else {
+  // 8-second timeout — if Supabase doesn't respond, show login
+  const sessionTimeout = setTimeout(() => {
+    hideLoader();
+    document.getElementById('login-screen').style.display='flex';
+  }, 8000);
+
+  try {
+    const { data: { session } } = await _supa.auth.getSession();
+    clearTimeout(sessionTimeout);
+    if(session && session.user) {
+      await onSignedIn(session.user);
+    } else {
+      hideLoader();
+      document.getElementById('login-screen').style.display='flex';
+    }
+  } catch(e) {
+    clearTimeout(sessionTimeout);
     hideLoader();
     document.getElementById('login-screen').style.display='flex';
   }
