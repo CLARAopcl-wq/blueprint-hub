@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Blueprint Hub Operations</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;Blueprint Hub Operations&quot;,&quot;short_name&quot;:&quot;BH Ops&quot;,&quot;start_url&quot;:&quot;./app.html&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%230F1117&quot;,&quot;theme_color&quot;:&quot;%23F5A623&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;https://via.placeholder.com/192x192/F5A623/000000?text=BH&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/png&quot;}]}"/>
 <meta name="theme-color" content="#F5A623"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -878,11 +878,11 @@ async function onSignedIn(user) {
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='none';
 
-  // 8-second timeout — if Supabase doesn't respond, show login
+  // 5-second timeout — if Supabase doesn't respond, show login
   const sessionTimeout = setTimeout(() => {
     hideLoader();
     document.getElementById('login-screen').style.display='flex';
-  }, 8000);
+  }, 5000);
 
   try {
     const { data: { session } } = await _supa.auth.getSession();
