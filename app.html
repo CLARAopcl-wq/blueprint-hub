@@ -2808,8 +2808,7 @@ function toggleMic() {
   document.getElementById('mic-btn').textContent = '⏹️';
 }
 
-// Init
-if(localStorage.getItem('bh_session')){renderAll();checkAutoSummary();}
+// Init — session handled by Supabase auth above
 </script>
 </body>
 </html>
