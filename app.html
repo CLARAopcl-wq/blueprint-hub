@@ -879,7 +879,25 @@ async function onSignedIn(user) {
   restoreLastPage();
   updateNavBadges();
   checkAutoSummary();
+  resetInactivityTimer();
 }
+
+// ── AUTO LOGOUT after 3 hours of inactivity ──────────────────────────────────
+const INACTIVITY_LIMIT = 3 * 60 * 60 * 1000; // 3 hours in ms
+let inactivityTimer = null;
+
+function resetInactivityTimer(){
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(async () => {
+    showToast('⏰ Signed out after 3 hours of inactivity');
+    setTimeout(doLogout, 1500);
+  }, INACTIVITY_LIMIT);
+}
+
+// Track any user interaction
+['click','keydown','touchstart','mousemove'].forEach(evt => {
+  document.addEventListener(evt, resetInactivityTimer, { passive: true });
+});
 
 // Check existing session on load + listen for auth changes
 (async () => {
@@ -887,17 +905,19 @@ async function onSignedIn(user) {
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='none';
 
-  // 5-second timeout — if Supabase doesn't respond, show login
+  // 10-second timeout — if Supabase doesn't respond, show login
   const sessionTimeout = setTimeout(() => {
     hideLoader();
     document.getElementById('login-screen').style.display='flex';
-  }, 5000);
+  }, 10000);
 
   try {
+    // First check localStorage for cached session token
     const { data: { session } } = await _supa.auth.getSession();
     clearTimeout(sessionTimeout);
     if(session && session.user) {
       await onSignedIn(session.user);
+      resetInactivityTimer();
     } else {
       hideLoader();
       document.getElementById('login-screen').style.display='flex';
