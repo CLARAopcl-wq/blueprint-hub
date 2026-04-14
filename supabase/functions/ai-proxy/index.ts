@@ -1,9 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const DAILY_LIMIT = 500;
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -13,6 +16,50 @@ serve(async (req) => {
 
   try {
     const { message, settings } = await req.json();
+
+    // ── RATE LIMITING ──────────────────────────────────────────────────────────
+    // Get user from JWT
+    const authHeader = req.headers.get('Authorization') || '';
+    const jwt = authHeader.replace('Bearer ', '');
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { data: { user } } = await supabase.auth.getUser(jwt);
+    const userId = user?.id;
+
+    if (userId) {
+      const today = new Date().toISOString().split('T')[0];
+      const rateKey = `ai_calls_${userId}_${today}`;
+
+      // Get current count
+      const { data: rateData } = await supabase
+        .from('ai_rate_limits')
+        .select('count')
+        .eq('key', rateKey)
+        .single();
+
+      const currentCount = rateData?.count || 0;
+
+      if (currentCount >= DAILY_LIMIT) {
+        return new Response(JSON.stringify({
+          error: `Daily AI limit reached (${DAILY_LIMIT} calls/day). Resets at midnight.`,
+          type: null,
+          limitReached: true
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Increment count (upsert)
+      await supabase
+        .from('ai_rate_limits')
+        .upsert({ key: rateKey, count: currentCount + 1, updated_at: new Date().toISOString() });
+    }
+    // ── END RATE LIMITING ──────────────────────────────────────────────────────
 
     if (!message) {
       return new Response(JSON.stringify({ error: 'No message provided' }), {
