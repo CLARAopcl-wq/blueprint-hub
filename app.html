@@ -2400,7 +2400,7 @@ function buildMappingUI(type, aiMappings={}){
     </div>`;
   }).join('');
 
-  const aiMatched = Object.values(aiMappings||{}).filter(v => (v as number) >= 0).length;
+  const aiMatched = Object.values(aiMappings||{}).filter(v => Number(v) >= 0).length;
   const matched = fields.filter(f => {
     const ai = aiMappings?.[f.key];
     return (ai !== undefined && ai >= 0) || findBestMatch(f) >= 0;
