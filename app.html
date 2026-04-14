@@ -771,10 +771,19 @@ async function save() {
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(async () => {
     try {
-      const { error } = await _supa
-        .from('user_data')
-        .upsert({ user_id: currentUser.id, data: db, updated_at: new Date().toISOString() },
-                 { onConflict: 'user_id' });
+      // Try update first, then insert if no row exists
+      const { data: existing } = await _supa
+        .from('user_data').select('id').eq('user_id', currentUser.id).single();
+      
+      let error;
+      if(existing) {
+        ({ error } = await _supa.from('user_data')
+          .update({ data: db, updated_at: new Date().toISOString() })
+          .eq('user_id', currentUser.id));
+      } else {
+        ({ error } = await _supa.from('user_data')
+          .insert({ user_id: currentUser.id, data: db, updated_at: new Date().toISOString() }));
+      }
       if(error) console.error('Save error:', error.message);
     } catch(e) { console.error('Save failed:', e); }
   }, 800);
