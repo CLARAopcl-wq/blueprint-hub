@@ -1,16 +1,27 @@
 const express = require('express');
 const twilio = require('twilio');
 const cron = require('node-cron');
+const Anthropic = require('@anthropic-ai/sdk');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: false })); // needed for Twilio webhooks
 
 // ── CONFIG ─────────────────────────────────────────────────────────────────────
 const TWILIO_SID = process.env.TWILIO_SID;
 const TWILIO_TOKEN = process.env.TWILIO_TOKEN;
 const TWILIO_PHONE = process.env.TWILIO_PHONE || '+18775427817';
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://tsltxrutoynlvsdyljtm.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 
 const client = twilio(TWILIO_SID, TWILIO_TOKEN);
+const claude = new Anthropic({ apiKey: ANTHROPIC_KEY });
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// In-memory conversation store (backs up to Supabase)
+const conversations = {};
 
 // In-memory scheduled jobs (upgrades to DB later)
 const scheduledJobs = [];
@@ -186,6 +197,146 @@ app.post('/send-sms', async (req, res) => {
   res.json(result);
 });
 
+// ── AI RECEPTIONIST — INBOUND SMS ─────────────────────────────────────────────
+app.post('/inbound-sms', async (req, res) => {
+  const fromPhone = req.body.From;
+  const incomingMsg = req.body.Body;
+  const twiml = new twilio.twiml.MessagingResponse();
+
+  if(!fromPhone || !incomingMsg){
+    twiml.message('Sorry, something went wrong. Please try again.');
+    return res.type('text/xml').send(twiml.toString());
+  }
+
+  console.log(`📨 Inbound SMS from ${fromPhone}: ${incomingMsg}`);
+
+  // Load or create conversation
+  if(!conversations[fromPhone]){
+    conversations[fromPhone] = {
+      phone: fromPhone,
+      messages: [],
+      leadData: {},
+      qualified: false,
+      addedToHub: false
+    };
+  }
+
+  const convo = conversations[fromPhone];
+  convo.messages.push({ role: 'user', content: incomingMsg });
+
+  // Build Claude system prompt
+  const systemPrompt = `You are an AI receptionist for a contractor business using Blueprint Hub Operations. Your job is to warmly greet incoming leads, qualify them, and collect their information.
+
+Be conversational, friendly, and professional. Keep messages SHORT (1-3 sentences max) — this is SMS.
+
+Your goal is to collect:
+1. Their first and last name
+2. What type of work they need (roofing, plumbing, HVAC, concrete, etc.)
+3. Their city/location
+4. Their timeline (how soon do they need the work done)
+5. Rough budget (optional but helpful)
+
+Rules:
+- Ask ONE question at a time
+- Don't ask for info you already have
+- Once you have name + job type + location, say: "Perfect! I'll have someone reach out to you shortly to schedule a free estimate. Is there anything else you'd like us to know?"
+- After that final message, end your response with: [LEAD_QUALIFIED]
+- If they seem uninterested or say wrong number, respond politely and end with: [NOT_A_LEAD]
+- Never mention Blueprint Hub or that you're an AI unless directly asked
+
+Current conversation data collected so far: ${JSON.stringify(convo.leadData)}`;
+
+  // Get Claude's response
+  let aiReply = '';
+  try {
+    const response = await claude.messages.create({
+      model: 'claude-haiku-20240307',
+      max_tokens: 200,
+      system: systemPrompt,
+      messages: convo.messages
+    });
+    aiReply = response.content[0].text;
+  } catch(err) {
+    console.error('Claude error:', err.message);
+    aiReply = "Hey! Thanks for reaching out. What can we help you with today?";
+  }
+
+  // Check if lead is qualified
+  if(aiReply.includes('[LEAD_QUALIFIED]')){
+    aiReply = aiReply.replace('[LEAD_QUALIFIED]', '').trim();
+    convo.qualified = true;
+
+    // Extract lead data from conversation using Claude
+    try {
+      const extractRes = await claude.messages.create({
+        model: 'claude-haiku-20240307',
+        max_tokens: 300,
+        system: 'Extract lead information from this conversation. Return ONLY valid JSON with these fields: name, job_type, location, timeline, notes. Use empty string if not found.',
+        messages: [{ role: 'user', content: `Conversation: ${convo.messages.map(m => `${m.role}: ${m.content}`).join('\n')}` }]
+      });
+
+      const jsonMatch = extractRes.content[0].text.match(/\{[\s\S]*\}/);
+      if(jsonMatch){
+        convo.leadData = JSON.parse(jsonMatch[0]);
+      }
+    } catch(e) {
+      console.warn('Extraction error:', e.message);
+    }
+
+    // Add to Supabase as a lead (Blueprint Hub format)
+    if(!convo.addedToHub && convo.leadData.name){
+      try {
+        // Get the user's data and append the new lead
+        const newLead = {
+          id: `L${Date.now()}`,
+          name: convo.leadData.name || 'Unknown',
+          phone: fromPhone,
+          source: 'AI Receptionist (SMS)',
+          job_type: convo.leadData.job_type || 'Unknown',
+          location: convo.leadData.location || '',
+          status: 'New Lead',
+          notes: `Auto-qualified via SMS. Timeline: ${convo.leadData.timeline || 'Unknown'}. ${convo.leadData.notes || ''}`,
+          date: new Date().toISOString().split('T')[0],
+          estimate_value: ''
+        };
+
+        // Store in Supabase receptionist_leads table
+        await supabase.from('receptionist_leads').insert(newLead);
+        convo.addedToHub = true;
+        console.log(`✅ Lead added to Blueprint Hub: ${convo.leadData.name} (${fromPhone})`);
+      } catch(e) {
+        console.warn('Supabase insert error:', e.message);
+      }
+    }
+  }
+
+  if(aiReply.includes('[NOT_A_LEAD]')){
+    aiReply = aiReply.replace('[NOT_A_LEAD]', '').trim();
+    delete conversations[fromPhone];
+  }
+
+  // Add AI reply to conversation history
+  convo.messages.push({ role: 'assistant', content: aiReply });
+
+  // Keep conversation history manageable (last 20 messages)
+  if(convo.messages.length > 20) convo.messages = convo.messages.slice(-20);
+
+  console.log(`🤖 AI Reply to ${fromPhone}: ${aiReply}`);
+  twiml.message(aiReply);
+  res.type('text/xml').send(twiml.toString());
+});
+
+// ── VIEW RECEPTIONIST LEADS ───────────────────────────────────────────────────
+app.get('/receptionist-leads', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('receptionist_leads').select('*').order('date', { ascending: false });
+    if(error) throw error;
+    res.json({ leads: data, active_conversations: Object.keys(conversations).length });
+  } catch(e) {
+    res.json({ leads: [], active_conversations: Object.keys(conversations).length, error: e.message });
+  }
+});
+
 // ── HEALTH CHECK ──────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({
@@ -198,8 +349,11 @@ app.get('/', (req, res) => {
       'POST /webhook/job-approved',
       'POST /webhook/job-completed',
       'POST /webhook/reactivate',
-      'POST /send-sms'
+      'POST /send-sms',
+      'POST /inbound-sms (AI Receptionist)',
+      'GET  /receptionist-leads'
     ],
+    active_conversations: Object.keys(conversations).length,
     scheduled_jobs: scheduledJobs.filter(j => !j.sent).length
   });
 });
