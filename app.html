@@ -1060,7 +1060,15 @@ function renderSettings(){
   // AI Receptionist settings
   const r = s.receptionist || {};
   const receptionistSection = `<div class="settings-card" style="grid-column:1/-1;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(59,130,246,0.05));border-color:rgba(99,102,241,0.25);">
-    <h3>🤖 AI Receptionist</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h3 style="margin:0;">🤖 AI Receptionist</h3>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+        <span style="font-size:0.82rem;color:var(--muted);">${(r.enabled!==false)?'Active':'Inactive'}</span>
+        <div onclick="toggleReceptionist()" style="position:relative;width:44px;height:24px;background:${(r.enabled!==false)?'#6366f1':'var(--border)'};border-radius:25px;transition:background 0.2s;flex-shrink:0;">
+          <div style="position:absolute;top:3px;left:${(r.enabled!==false)?'23px':'3px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:left 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></div>
+        </div>
+      </label>
+    </div>
     <div style="color:var(--muted);font-size:0.8rem;margin-bottom:20px;">When someone texts your Blueprint Hub number, the AI responds as your receptionist and qualifies leads automatically.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
       <div>
@@ -1102,8 +1110,8 @@ function renderSettings(){
         onchange="updateReceptionist('customInstructions',this.value)"
         style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;color:var(--text);outline:none;resize:vertical;min-height:80px;">${r.customInstructions||''}</textarea>
     </div>
-    <div style="margin-top:16px;padding:12px 16px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;font-size:0.8rem;color:#16a34a;">
-      ✅ AI Receptionist is <strong>active</strong> — leads who text +1 (877) 542-7817 will get an instant AI response.
+    <div style="margin-top:16px;padding:12px 16px;background:${(r.enabled!==false)?'rgba(34,197,94,0.08)':'rgba(239,68,68,0.08)'};border:1px solid ${(r.enabled!==false)?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)'};border-radius:8px;font-size:0.8rem;color:${(r.enabled!==false)?'#16a34a':'#dc2626'};">
+      ${(r.enabled!==false)?'✅ AI Receptionist is <strong>active</strong> — leads who text +1 (877) 542-7817 will get an instant AI response.':'⏸️ AI Receptionist is <strong>paused</strong> — inbound texts will not receive an automated response.'}
     </div>
   </div>`;
 
@@ -1152,6 +1160,12 @@ function updateReceptionist(key, value){
   if(!db.settings.receptionist) db.settings.receptionist = {};
   db.settings.receptionist[key] = value.trim();
   save();
+}
+function toggleReceptionist(){
+  if(!db.settings.receptionist) db.settings.receptionist = {};
+  db.settings.receptionist.enabled = db.settings.receptionist.enabled === false ? true : false;
+  save();
+  renderSettings();
 }
 
 function render(page){
