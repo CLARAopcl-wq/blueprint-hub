@@ -183,10 +183,14 @@ body{font-family:'Inter',sans-serif;background:var(--dark);color:var(--text);fon
   .dash-tables{grid-template-columns:1fr;}
   /* Forms single column */
   .form-grid{grid-template-columns:1fr !important;}
-  /* Tables */
-  .table-wrap{border-radius:8px;max-height:50vh;}
-  table{font-size:0.78rem;}
-  th,td{padding:7px 8px;white-space:nowrap;}
+  /* Tables → Card layout on mobile */
+  .table-wrap{border-radius:8px;overflow-x:hidden;}
+  .table-wrap table thead{display:none;}
+  .table-wrap table tbody tr{display:flex;flex-direction:column;background:var(--dark2);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;padding:14px;}
+  .table-wrap table tbody td{display:flex;align-items:center;padding:4px 0;font-size:0.82rem;border:none;white-space:normal;word-break:break-word;}
+  .table-wrap table tbody td:first-child{font-size:0.7rem;color:var(--muted);}
+  .table-wrap table tbody td:last-child{margin-top:8px;gap:8px;}
+  .table-wrap table{width:100%;border:none;background:none;}
   .table-header{flex-direction:column;align-items:flex-start;gap:10px;}
   .table-controls{width:100%;}
   .search-bar{width:100%;}
