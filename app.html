@@ -580,6 +580,13 @@ const DEFAULT_DATA = {
     followUpStatuses:['Open','Done'],
     teamMembers:['Owner','Admin','Office Manager','Estimator','Crew Lead'],
     teamMemberPhones:{},
+    receptionist:{
+      name:'',
+      services:'',
+      tone:'Professional',
+      openingMessage:'',
+      customInstructions:'',
+    },
   }
 };
 
@@ -1050,7 +1057,57 @@ function renderSettings(){
     <div style="color:var(--muted);font-size:0.75rem;margin-top:10px;">📱 Add phone numbers to enable crew text notifications</div>
   </div>`;
 
-  document.getElementById('settings-grid').innerHTML = teamSection + sections.map(sec=>`
+  // AI Receptionist settings
+  const r = s.receptionist || {};
+  const receptionistSection = `<div class="settings-card" style="grid-column:1/-1;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(59,130,246,0.05));border-color:rgba(99,102,241,0.25);">
+    <h3>🤖 AI Receptionist</h3>
+    <div style="color:var(--muted);font-size:0.8rem;margin-bottom:20px;">When someone texts your Blueprint Hub number, the AI responds as your receptionist and qualifies leads automatically.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+      <div>
+        <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:6px;">📱 Your Blueprint Hub Number</label>
+        <div style="padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;color:var(--muted);">+1 (877) 542-7817</div>
+      </div>
+      <div>
+        <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:6px;">🧑 Receptionist Name</label>
+        <input type="text" placeholder="e.g. Sarah, Alex, Jordan..." value="${r.name||''}"
+          onchange="updateReceptionist('name',this.value)"
+          style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;color:var(--text);outline:none;"/>
+      </div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:6px;">🔧 Services You Offer</label>
+      <input type="text" placeholder="e.g. Roofing, gutters, siding, inspections, repairs..." value="${r.services||''}"
+        onchange="updateReceptionist('services',this.value)"
+        style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;color:var(--text);outline:none;"/>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:6px;">🗣️ Tone</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        ${['Friendly & Casual','Professional','Direct & Efficient'].map(t=>`
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.85rem;">
+            <input type="radio" name="receptionist-tone" value="${t}" ${(r.tone||'Professional')===t?'checked':''} onchange="updateReceptionist('tone','${t}')"/> ${t}
+          </label>`).join('')}
+      </div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:6px;">💬 Opening Message</label>
+      <textarea placeholder="Hey! Thanks for reaching out to {business}. What can I help you with today?" 
+        onchange="updateReceptionist('openingMessage',this.value)"
+        style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;color:var(--text);outline:none;resize:vertical;min-height:70px;">${r.openingMessage||''}</textarea>
+      <div style="font-size:0.72rem;color:var(--muted);margin-top:4px;">Use {business} for your business name, {name} for the lead's name.</div>
+    </div>
+    <div>
+      <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:6px;">📋 Custom Instructions <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+      <textarea placeholder="e.g. We don't do commercial work. Minimum job $500. Always ask for address. Never quote prices over text..." 
+        onchange="updateReceptionist('customInstructions',this.value)"
+        style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;color:var(--text);outline:none;resize:vertical;min-height:80px;">${r.customInstructions||''}</textarea>
+    </div>
+    <div style="margin-top:16px;padding:12px 16px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;font-size:0.8rem;color:#16a34a;">
+      ✅ AI Receptionist is <strong>active</strong> — leads who text +1 (877) 542-7817 will get an instant AI response.
+    </div>
+  </div>`;
+
+  document.getElementById('settings-grid').innerHTML = receptionistSection + teamSection + sections.map(sec=>`
     <div class="settings-card">
       <h3>${sec.label}</h3>
       <div class="settings-tags" id="tags-${sec.key}">
@@ -1090,6 +1147,11 @@ function addTag(key){
 function removeTag(key,val){
   db.settings[key]=db.settings[key].filter(v=>v!==val);
   save();renderSettings();
+}
+function updateReceptionist(key, value){
+  if(!db.settings.receptionist) db.settings.receptionist = {};
+  db.settings.receptionist[key] = value.trim();
+  save();
 }
 
 function render(page){
