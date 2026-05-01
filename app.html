@@ -558,7 +558,9 @@ const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
     storage: window.localStorage,
+    storageKey: 'bh_supabase_auth',
   }
 });
 
@@ -699,6 +701,9 @@ async function onSignedIn(user) {
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='none';
 
+  // Give Supabase time to restore session from localStorage
+  await new Promise(r => setTimeout(r, 300));
+
   const { data: { session } } = await _supa.auth.getSession();
   if(session && session.user) {
     await onSignedIn(session.user);
@@ -709,7 +714,8 @@ async function onSignedIn(user) {
 
   // Keep session alive across tab switches and refreshes
   _supa.auth.onAuthStateChange(async (event, session) => {
-    if(event === 'SIGNED_IN' && session && session.user) {
+    console.log('Auth event:', event, session?.user?.email);
+    if((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session && session.user) {
       if(!currentUser || currentUser.id !== session.user.id) {
         await onSignedIn(session.user);
       }
@@ -719,8 +725,9 @@ async function onSignedIn(user) {
       document.getElementById('app').style.display='none';
       document.getElementById('login-screen').style.display='flex';
       showPanel('signin');
-    } else if(event === 'TOKEN_REFRESHED' && session) {
+    } else if((event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && session) {
       currentUser = session.user;
+      console.log('Token refreshed for:', session.user.email);
     }
   });
 })();
