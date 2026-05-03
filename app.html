@@ -762,7 +762,7 @@ async function doLogin() {
   if(!email||!pass){ errEl.textContent='Please enter email and password.'; errEl.style.display='block'; return; }
   const { data, error } = await _supa.auth.signInWithPassword({ email, password: pass });
   if(error){ errEl.textContent = error.message; errEl.style.display='block'; return; }
-  await onSignedIn(data.user);
+  _sessionHandled = true; await onSignedIn(data.user);
 }
 
 async function doSignup() {
@@ -776,7 +776,7 @@ async function doSignup() {
   const { data, error } = await _supa.auth.signUp({ email, password: pass });
   if(error){ errEl.textContent = error.message; errEl.style.display='block'; return; }
   if(biz) db.settings.businessName = biz;
-  await onSignedIn(data.user);
+  _sessionHandled = true; await onSignedIn(data.user);
 }
 
 async function doForgot() {
@@ -831,40 +831,37 @@ async function onSignedIn(user) {
 }
 
 // Check existing session on load + listen for auth changes
+let _sessionHandled = false;
 (async () => {
   showLoader();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='none';
 
-  // Give Supabase time to restore session from localStorage
-  await new Promise(r => setTimeout(r, 300));
-
-  const { data: { session } } = await _supa.auth.getSession();
-  if(session && session.user) {
-    await onSignedIn(session.user);
-  } else {
-    hideLoader();
-    document.getElementById('login-screen').style.display='flex';
-  }
-
-  // Keep session alive across tab switches and refreshes
+  // Listen for auth changes first
   _supa.auth.onAuthStateChange(async (event, session) => {
-    console.log('Auth event:', event, session?.user?.email);
-    if((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session && session.user) {
-      if(!currentUser || currentUser.id !== session.user.id) {
-        await onSignedIn(session.user);
-      }
-    } else if(event === 'SIGNED_OUT') {
+    if(event === 'SIGNED_OUT') {
+      _sessionHandled = false;
       currentUser = null;
       db = JSON.parse(JSON.stringify(DEFAULT_DATA));
       document.getElementById('app').style.display='none';
       document.getElementById('login-screen').style.display='flex';
       showPanel('signin');
-    } else if((event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && session) {
+      return;
+    }
+    if((event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && session) {
       currentUser = session.user;
-      console.log('Token refreshed for:', session.user.email);
     }
   });
+
+  // Then check for existing session
+  const { data: { session } } = await _supa.auth.getSession();
+  if(session && session.user && !_sessionHandled) {
+    _sessionHandled = true;
+    await onSignedIn(session.user);
+  } else if(!session) {
+    hideLoader();
+    document.getElementById('login-screen').style.display='flex';
+  }
 })();
 
 // ── LOADER ────────────────────────────────────────────────────────────────────
