@@ -25,21 +25,13 @@ body{
   color:var(--text);
   font-size:14px;
   background-color:#0A0F1E;
-  background-image: url('images/bg-blueprint.png');
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
-  background-repeat: no-repeat;
+  background-image:
+    linear-gradient(rgba(25,118,210,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(25,118,210,0.08) 1px, transparent 1px),
+    linear-gradient(rgba(25,118,210,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(25,118,210,0.03) 1px, transparent 1px);
+  background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
 }
-body::before{
-  content:'';
-  position:fixed;
-  inset:0;
-  background:rgba(5,8,20,0.72);
-  pointer-events:none;
-  z-index:0;
-}
-#app-loader, .login-screen-wrap, #app{position:relative;z-index:1;}
 
 /* ── LOGIN ── */
 #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--dark);}
