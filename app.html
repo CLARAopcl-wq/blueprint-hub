@@ -6,6 +6,7 @@
 <title>Blueprint Hub Operations</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;Blueprint Hub Operations&quot;,&quot;short_name&quot;:&quot;BH Ops&quot;,&quot;start_url&quot;:&quot;./app.html&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%230F1117&quot;,&quot;theme_color&quot;:&quot;%23F5A623&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;https://via.placeholder.com/192x192/F5A623/000000?text=BH&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/png&quot;}]}"/>
 <meta name="theme-color" content="#F5A623"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -575,6 +576,84 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 
 <script>
 // ── SUPABASE INIT ─────────────────────────────────────────────────────────────
+// ── GOOGLE CALENDAR CONFIG ─────────────────────────────────────────────────────
+const GCAL_CLIENT_ID = '20425489960-tetdd3d4poioaqsrtn50b646mv8v9pd8.apps.googleusercontent.com';
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+let gcalToken = null;
+
+async function connectGoogleCalendar(){
+  return new Promise((resolve, reject) => {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: GCAL_CLIENT_ID,
+      scope: GCAL_SCOPE,
+      callback: (resp) => {
+        if(resp.error){ reject(resp.error); return; }
+        gcalToken = resp.access_token;
+        localStorage.setItem('bh_gcal_token', gcalToken);
+        resolve(gcalToken);
+      }
+    });
+    client.requestAccessToken();
+  });
+}
+
+async function ensureGcalToken(){
+  if(gcalToken) return gcalToken;
+  const stored = localStorage.getItem('bh_gcal_token');
+  if(stored){ gcalToken = stored; return gcalToken; }
+  return await connectGoogleCalendar();
+}
+
+async function addJobToCalendar(job){
+  try {
+    const token = await ensureGcalToken();
+    const startDate = job.startDate || job.scheduledDate || new Date().toISOString().split('T')[0];
+    const endDate = job.endDate || startDate;
+    const event = {
+      summary: `🔨 ${job.serviceType || 'Job'} — ${job.clientName || 'Client'}`,
+      description: `Blueprint Hub Job #${job.id}\nValue: $${job.value || '0'}\nStatus: ${job.status || 'Scheduled'}\nNotes: ${job.notes || ''}`,
+      start: { date: startDate },
+      end: { date: endDate },
+      extendedProperties: { private: { bhJobId: job.id } }
+    };
+    const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(event)
+    });
+    const data = await res.json();
+    if(data.id){
+      // Save calendar event ID back to job
+      const jobIdx = db.jobs.findIndex(j => j.id === job.id);
+      if(jobIdx >= 0){ db.jobs[jobIdx].gcalEventId = data.id; save(); }
+      return data.id;
+    }
+  } catch(e) {
+    console.warn('Calendar sync error:', e.message);
+  }
+}
+
+async function updateJobInCalendar(job){
+  if(!job.gcalEventId) return addJobToCalendar(job);
+  try {
+    const token = await ensureGcalToken();
+    const startDate = job.startDate || job.scheduledDate || new Date().toISOString().split('T')[0];
+    const event = {
+      summary: `🔨 ${job.serviceType || 'Job'} — ${job.clientName || 'Client'}${job.status === 'Completed' ? ' ✅' : ''}`,
+      description: `Blueprint Hub Job #${job.id}\nValue: $${job.value || '0'}\nStatus: ${job.status || 'Scheduled'}`,
+      start: { date: startDate },
+      end: { date: job.endDate || startDate }
+    };
+    await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${job.gcalEventId}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(event)
+    });
+  } catch(e) {
+    console.warn('Calendar update error:', e.message);
+  }
+}
+
 const SUPABASE_URL = 'https://tsltxrutoynlvsdyljtm.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzbHR4cnV0b3lubHZzZHlsanRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1ODQ1NTEsImV4cCI6MjA5MTE2MDU1MX0.rSkMjWhEwZ44tFq0JT2aeWBZAaJNCi1E7oQfdOKJ1m8';
 const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -1153,7 +1232,32 @@ function renderSettings(){
     </div>
   </div>`;
 
-  document.getElementById('settings-grid').innerHTML = receptionistSection + teamSection + sections.map(sec=>`
+  // Google Calendar section
+  const gcalConnected = !!localStorage.getItem('bh_gcal_token');
+  const gcalSection = `<div class="settings-card" style="grid-column:1/-1;background:linear-gradient(135deg,rgba(66,133,244,0.08),rgba(52,168,83,0.05));border-color:rgba(66,133,244,0.25);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h3 style="margin:0;">📅 Google Calendar Sync</h3>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+        <span style="font-size:0.82rem;color:var(--muted);">${s.gcalEnabled?'Active':'Inactive'}</span>
+        <div onclick="toggleGcal()" style="position:relative;width:44px;height:24px;background:${s.gcalEnabled?'#4285f4':'var(--border)'};border-radius:25px;transition:background 0.2s;flex-shrink:0;">
+          <div style="position:absolute;top:3px;left:${s.gcalEnabled?'23px':'3px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:left 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></div>
+        </div>
+      </label>
+    </div>
+    <div style="color:var(--muted);font-size:0.8rem;margin-bottom:20px;">When enabled, jobs added to Blueprint Hub automatically appear in your Google Calendar.</div>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <button onclick="connectGoogleCalendar().then(()=>{renderSettings();}).catch(e=>alert('Could not connect: '+e))"
+        style="background:${gcalConnected?'rgba(52,168,83,0.15)':'#4285f4'};color:${gcalConnected?'#16a34a':'#fff'};border:${gcalConnected?'1px solid rgba(52,168,83,0.3)':'none'};padding:10px 20px;border-radius:8px;font-weight:600;font-size:0.88rem;cursor:pointer;">
+        ${gcalConnected?'✅ Google Calendar Connected':'🔗 Connect Google Calendar'}
+      </button>
+      ${gcalConnected?`<button onclick="localStorage.removeItem('bh_gcal_token');gcalToken=null;renderSettings();" style="background:none;border:1px solid var(--border);color:var(--muted);padding:10px 16px;border-radius:8px;font-size:0.82rem;cursor:pointer;">Disconnect</button>`:''}
+    </div>
+    <div style="margin-top:16px;padding:12px 16px;background:${s.gcalEnabled&&gcalConnected?'rgba(34,197,94,0.08)':'rgba(239,68,68,0.08)'};border:1px solid ${s.gcalEnabled&&gcalConnected?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)'};border-radius:8px;font-size:0.8rem;color:${s.gcalEnabled&&gcalConnected?'#16a34a':'#dc2626'};">
+      ${s.gcalEnabled&&gcalConnected?'✅ Jobs will sync to your Google Calendar automatically.':!gcalConnected?'⚠️ Connect your Google Calendar to enable sync.':'⏸️ Calendar sync is paused.'}
+    </div>
+  </div>`;
+
+  document.getElementById('settings-grid').innerHTML = receptionistSection + gcalSection + teamSection + sections.map(sec=>`
     <div class="settings-card">
       <h3>${sec.label}</h3>
       <div class="settings-tags" id="tags-${sec.key}">
@@ -1202,6 +1306,11 @@ function updateReceptionist(key, value){
 function toggleReceptionist(){
   if(!db.settings.receptionist) db.settings.receptionist = {};
   db.settings.receptionist.enabled = db.settings.receptionist.enabled === false ? true : false;
+  save();
+  renderSettings();
+}
+function toggleGcal(){
+  db.settings.gcalEnabled = !db.settings.gcalEnabled;
   save();
   renderSettings();
 }
@@ -1379,6 +1488,12 @@ function saveModal(){
     if(type === 'estimates') fireWebhook('estimate-sent', record);
     if(type === 'jobs' && record.status === 'Approved') fireWebhook('job-approved', record);
     if(type === 'jobs' && record.status === 'Completed') fireWebhook('job-completed', record);
+  }
+
+  // 📅 Sync to Google Calendar for jobs
+  if(type === 'jobs' && db.settings.gcalEnabled){
+    if(isNew) addJobToCalendar(record);
+    else updateJobInCalendar(record);
   }
 }
 
