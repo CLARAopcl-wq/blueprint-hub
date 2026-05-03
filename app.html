@@ -806,7 +806,8 @@ async function onSignedIn(user) {
   document.getElementById('app').style.display='none';
   const email = user.email || '';
   const username = email.split('@')[0];
-  document.getElementById('topbar-user').textContent = '👤 ' + username;
+  const topbarUser = document.getElementById('topbar-user');
+  if(topbarUser) topbarUser.textContent = '👤 ' + username;
 
   // Populate sidebar account
   const avatarEl = document.getElementById('account-avatar');
