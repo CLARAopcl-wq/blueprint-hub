@@ -6,6 +6,7 @@
 <title>Blueprint Hub Operations</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;Blueprint Hub Operations&quot;,&quot;short_name&quot;:&quot;BH Ops&quot;,&quot;start_url&quot;:&quot;./app.html&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%230F1117&quot;,&quot;theme_color&quot;:&quot;%23F5A623&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;https://via.placeholder.com/192x192/F5A623/000000?text=BH&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/png&quot;}]}"/>
 <meta name="theme-color" content="#F5A623"/>
@@ -50,6 +51,12 @@ body{
 .topbar-logo{font-size:1.1rem;font-weight:900;}.topbar-logo span{color:var(--yellow);}
 .topbar-right{display:flex;align-items:center;gap:16px;}
 .topbar-right .username{color:var(--muted);font-size:0.85rem;}
+/* ── CHART ── */
+.chart-range-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:6px;font-size:0.75rem;cursor:pointer;transition:all 0.15s;}
+.chart-range-btn.active{background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.4);color:#60A5FA;}
+.chart-legend-item{display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--muted);}
+.chart-legend-item::before{content:'';width:12px;height:3px;border-radius:2px;background:var(--c);}
+
 /* ── VIEW TOGGLE ── */
 .view-toggle{display:flex;gap:4px;background:var(--dark3);border-radius:8px;padding:3px;}
 .view-btn{background:none;border:none;color:var(--muted);padding:6px 14px;border-radius:6px;font-size:0.8rem;font-weight:600;cursor:pointer;transition:all 0.15s;}
@@ -501,6 +508,29 @@ tr:hover td{background:rgba(255,255,255,0.02);}
             <span style="color:var(--muted);font-size:0.75rem;font-weight:400;">Last 10</span>
           </div>
           <div id="dash-crew-log"></div>
+        </div>
+
+        <!-- ACTIVITY CHART -->
+        <div class="dash-table-box" style="margin-top:20px;padding:20px 24px;">
+          <div class="dash-table-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <span>📈 Business Activity</span>
+            <div style="display:flex;gap:8px;">
+              <button onclick="setChartRange(30)" id="chart-btn-30" class="chart-range-btn active">30 Days</button>
+              <button onclick="setChartRange(90)" id="chart-btn-90" class="chart-range-btn">90 Days</button>
+              <button onclick="setChartRange(365)" id="chart-btn-365" class="chart-range-btn">1 Year</button>
+            </div>
+          </div>
+          <div style="position:relative;height:280px;">
+            <canvas id="activity-chart"></canvas>
+          </div>
+          <!-- Legend -->
+          <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:16px;justify-content:center;">
+            <span class="chart-legend-item" style="--c:#3B82F6">Leads</span>
+            <span class="chart-legend-item" style="--c:#F59E0B">Estimates</span>
+            <span class="chart-legend-item" style="--c:#4ADE80">Jobs</span>
+            <span class="chart-legend-item" style="--c:#A78BFA">Invoices</span>
+            <span class="chart-legend-item" style="--c:#FB923C">Follow-Ups</span>
+          </div>
         </div>
       </div>
       <!-- LEADS -->
@@ -1235,6 +1265,7 @@ function emptyState(msg, btnLabel=null, btnAction=null){
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function renderDashboard(){
   loadSavedInsights();
+  setTimeout(renderActivityChart, 100);
   const now=today();
   const thisMonth=now.substring(0,7);
   const leads=db.leads;
@@ -1940,6 +1971,109 @@ function parseQuickEntry(text) {
     • "Follow up with Bob Johnson tomorrow"<br>
     • "New estimate for Dave, concrete, $8000"`;
   return result;
+}
+
+// ── ACTIVITY CHART ───────────────────────────────────────────────────────────
+let activityChart = null;
+let chartRangeDays = 30;
+
+function setChartRange(days){
+  chartRangeDays = days;
+  document.querySelectorAll('.chart-range-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`chart-btn-${days}`)?.classList.add('active');
+  renderActivityChart();
+}
+
+function renderActivityChart(){
+  const canvas = document.getElementById('activity-chart');
+  if(!canvas) return;
+
+  const now = new Date();
+  const days = chartRangeDays;
+  const interval = days <= 30 ? 1 : days <= 90 ? 7 : 30;
+  const format = days <= 30 ? 'M/D' : days <= 90 ? 'Week of M/D' : 'MMM';
+
+  // Build date buckets
+  const buckets = [];
+  const labels = [];
+  for(let i = days; i >= 0; i -= interval){
+    const d = new Date(now - i * 86400000);
+    buckets.push(d);
+    if(days <= 30) labels.push(`${d.getMonth()+1}/${d.getDate()}`);
+    else if(days <= 90) labels.push(`${d.getMonth()+1}/${d.getDate()}`);
+    else labels.push(d.toLocaleString('default',{month:'short'}));
+  }
+
+  function countByDate(records, dateField){
+    return buckets.map((b, i) => {
+      const next = buckets[i+1] || new Date(now.getTime() + 86400000);
+      return records.filter(r => {
+        const d = new Date(r[dateField]);
+        return d >= b && d < next;
+      }).length;
+    });
+  }
+
+  const datasets = [
+    { label:'Leads', data: countByDate(db.leads,'dateAdded'), color:'#3B82F6' },
+    { label:'Estimates', data: countByDate(db.estimates,'dateCreated'), color:'#F59E0B' },
+    { label:'Jobs', data: countByDate(db.jobs,'startDate'), color:'#4ADE80' },
+    { label:'Invoices', data: countByDate(db.invoices,'dateSent'), color:'#A78BFA' },
+    { label:'Follow-Ups', data: countByDate(db.followups,'dueDate'), color:'#FB923C' },
+  ];
+
+  if(activityChart) activityChart.destroy();
+
+  activityChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: datasets.map(ds => ({
+        label: ds.label,
+        data: ds.data,
+        borderColor: ds.color,
+        backgroundColor: ds.color + '15',
+        borderWidth: 2,
+        pointRadius: days <= 30 ? 3 : 1,
+        pointHoverRadius: 6,
+        pointBackgroundColor: ds.color,
+        fill: true,
+        tension: 0.4,
+      }))
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor:'rgba(15,22,40,0.95)',
+          borderColor:'rgba(59,130,246,0.3)',
+          borderWidth:1,
+          titleColor:'#E8EAF0',
+          bodyColor:'#8B95A8',
+          padding:12,
+          callbacks: {
+            title: (items) => `📅 ${items[0].label}`,
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color:'rgba(255,255,255,0.04)' },
+          ticks: { color:'#8B95A8', font:{size:11}, maxTicksLimit:8 },
+          border: { color:'rgba(255,255,255,0.08)' }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color:'rgba(255,255,255,0.04)' },
+          ticks: { color:'#8B95A8', font:{size:11}, precision:0 },
+          border: { color:'rgba(255,255,255,0.08)' }
+        }
+      }
+    }
+  });
 }
 
 // ── KANBAN BOARD ─────────────────────────────────────────────────────────────
