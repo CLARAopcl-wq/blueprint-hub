@@ -1973,16 +1973,13 @@ FOLLOW-UPS:
         'Authorization': `Bearer ${SUPABASE_KEY}`
       },
       body: JSON.stringify({
-        user_id: currentUser.id,
-        messages: [{
-          role: 'user',
-          content: `You are a business advisor for a contractor. Analyze this data and give a concise weekly insights report. Be specific, actionable, and encouraging. Use bullet points. Highlight what's good, what needs attention, and 2-3 specific action items. Keep it under 300 words.\n\n${dataContext}`
-        }]
+        mode: 'insights',
+        message: `You are a business advisor for a contractor. Analyze this data and give a concise weekly insights report. Be specific, actionable, and encouraging. Use bullet points. Highlight what's good, what needs attention, and 2-3 specific action items. Keep it under 300 words. Return plain text only, no JSON.\n\n${dataContext}`
       })
     });
 
     const result = await res.json();
-    const insights = result.content || result.message || result.error || 'Unable to generate insights.';
+    const insights = result.insights || result.summary || result.error || 'Unable to generate insights at this time.';
 
     // Save insights to db
     if(!db.weeklyInsights) db.weeklyInsights = [];
