@@ -468,17 +468,22 @@ tr:hover td{background:rgba(255,255,255,0.02);}
         <div class="page-title">Dashboard</div>
         <!-- AI WEEKLY INSIGHTS CARD -->
         <div id="ai-insights-card" style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(59,130,246,0.06));border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:20px 24px;margin-bottom:20px;display:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-            <div style="display:flex;align-items:center;gap:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1;" onclick="toggleInsights()">
               <span style="font-size:1.3rem;">🧠</span>
               <div>
                 <div style="font-size:0.78rem;font-weight:700;color:#A78BFA;letter-spacing:0.5px;text-transform:uppercase;">AI Weekly Insights</div>
                 <div style="font-size:0.7rem;color:var(--muted);" id="insights-date"></div>
               </div>
+              <span id="insights-chevron" style="color:var(--muted);font-size:0.9rem;margin-left:4px;transition:transform 0.3s;">▼</span>
             </div>
-            <button onclick="generateInsights()" id="insights-btn" style="background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.3);color:#A78BFA;padding:6px 14px;border-radius:6px;font-size:0.78rem;font-weight:600;cursor:pointer;">✨ Refresh</button>
+            <div style="display:flex;gap:8px;">
+              <button onclick="generateInsights()" id="insights-btn" style="background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.3);color:#A78BFA;padding:6px 14px;border-radius:6px;font-size:0.78rem;font-weight:600;cursor:pointer;">✨ Refresh</button>
+            </div>
           </div>
-          <div id="insights-content" style="font-size:0.88rem;line-height:1.7;color:var(--text);white-space:pre-wrap;"></div>
+          <div id="insights-body" style="overflow:hidden;transition:max-height 0.4s cubic-bezier(0.16,1,0.3,1),opacity 0.3s;max-height:2000px;opacity:1;">
+            <div id="insights-content" style="font-size:0.88rem;line-height:1.7;color:var(--text);white-space:pre-wrap;margin-top:14px;padding-top:14px;border-top:1px solid rgba(99,102,241,0.15);"></div>
+          </div>
         </div>
         <!-- GENERATE INSIGHTS PROMPT (shown when no insights yet) -->
         <div id="ai-insights-prompt" style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(59,130,246,0.04));border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
@@ -2285,6 +2290,18 @@ FOLLOW-UPS:
 
   if(btn) btn.textContent = '✨ Refresh';
   if(btn) btn.disabled = false;
+}
+
+let insightsExpanded = true;
+function toggleInsights(){
+  insightsExpanded = !insightsExpanded;
+  const body = document.getElementById('insights-body');
+  const chevron = document.getElementById('insights-chevron');
+  if(body){
+    body.style.maxHeight = insightsExpanded ? '2000px' : '0px';
+    body.style.opacity = insightsExpanded ? '1' : '0';
+  }
+  if(chevron) chevron.style.transform = insightsExpanded ? 'rotate(0deg)' : 'rotate(-90deg)';
 }
 
 function loadSavedInsights(){
