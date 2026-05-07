@@ -426,6 +426,31 @@ tr:hover td{background:rgba(255,255,255,0.02);}
       <!-- DASHBOARD -->
       <div id="page-dashboard" class="page active">
         <div class="page-title">Dashboard</div>
+        <!-- AI WEEKLY INSIGHTS CARD -->
+        <div id="ai-insights-card" style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(59,130,246,0.06));border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:20px 24px;margin-bottom:20px;display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:1.3rem;">🧠</span>
+              <div>
+                <div style="font-size:0.78rem;font-weight:700;color:#A78BFA;letter-spacing:0.5px;text-transform:uppercase;">AI Weekly Insights</div>
+                <div style="font-size:0.7rem;color:var(--muted);" id="insights-date"></div>
+              </div>
+            </div>
+            <button onclick="generateInsights()" id="insights-btn" style="background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.3);color:#A78BFA;padding:6px 14px;border-radius:6px;font-size:0.78rem;font-weight:600;cursor:pointer;">✨ Refresh</button>
+          </div>
+          <div id="insights-content" style="font-size:0.88rem;line-height:1.7;color:var(--text);white-space:pre-wrap;"></div>
+        </div>
+        <!-- GENERATE INSIGHTS PROMPT (shown when no insights yet) -->
+        <div id="ai-insights-prompt" style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(59,130,246,0.04));border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:1.5rem;">🧠</span>
+            <div>
+              <div style="font-weight:600;font-size:0.88rem;color:var(--text);">AI Weekly Insights</div>
+              <div style="font-size:0.78rem;color:var(--muted);">Get a smart summary of your business performance</div>
+            </div>
+          </div>
+          <button onclick="generateInsights()" style="background:linear-gradient(135deg,#6366f1,#3b82f6);border:none;color:#fff;padding:10px 20px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;white-space:nowrap;">✨ Generate Insights</button>
+        </div>
         <div class="metrics-grid" id="metrics-grid"></div>
         <div class="dash-tables">
           <div class="dash-table-box">
@@ -1165,6 +1190,7 @@ function emptyState(msg, btnLabel=null, btnAction=null){
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function renderDashboard(){
+  loadSavedInsights();
   const now=today();
   const thisMonth=now.substring(0,7);
   const leads=db.leads;
@@ -1864,6 +1890,134 @@ function parseQuickEntry(text) {
     • "Follow up with Bob Johnson tomorrow"<br>
     • "New estimate for Dave, concrete, $8000"`;
   return result;
+}
+
+// ── AI WEEKLY INSIGHTS ───────────────────────────────────────────────────────
+async function generateInsights(){
+  if(!currentUser) return;
+  const btn = document.getElementById('insights-btn');
+  const content = document.getElementById('insights-content');
+  const card = document.getElementById('ai-insights-card');
+  const prompt = document.getElementById('ai-insights-prompt');
+
+  if(btn) btn.textContent = '⏳ Generating...';
+  if(btn) btn.disabled = true;
+
+  // Build data summary for Claude
+  const now = new Date();
+  const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+  const monthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+
+  const newLeadsWeek = db.leads.filter(l => new Date(l.dateAdded) >= weekAgo).length;
+  const totalActiveLeads = db.leads.filter(l => !['Won','Lost'].includes(l.status)).length;
+  const wonLeads = db.leads.filter(l => l.status === 'Won').length;
+  const totalLeads = db.leads.length;
+  const conversionRate = totalLeads > 0 ? Math.round((wonLeads/totalLeads)*100) : 0;
+
+  const sourceCount = {};
+  db.leads.forEach(l => { if(l.source) sourceCount[l.source] = (sourceCount[l.source]||0)+1; });
+  const topSource = Object.entries(sourceCount).sort((a,b)=>b[1]-a[1])[0];
+
+  const activeJobs = db.jobs.filter(j => ['Scheduled','In Progress','Waiting'].includes(j.status));
+  const completedThisMonth = db.jobs.filter(j => j.status === 'Completed' && new Date(j.startDate) >= monthAgo).length;
+
+  const unpaidInvoices = db.invoices.filter(i => i.status === 'Unpaid' || i.status === 'Partial');
+  const unpaidTotal = unpaidInvoices.reduce((sum,i) => sum + (parseFloat(i.amount)||0), 0);
+  const overdueInvoices = db.invoices.filter(i => i.status === 'Overdue' || (i.status === 'Unpaid' && i.dueDate && new Date(i.dueDate) < now));
+
+  const openFollowUps = db.followups.filter(f => f.status === 'Open');
+  const overdueFollowUps = db.followups.filter(f => f.status === 'Open' && f.dueDate && new Date(f.dueDate) < now);
+
+  const pendingEstimates = db.estimates.filter(e => ['Sent','Pending'].includes(e.status));
+  const pendingEstValue = pendingEstimates.reduce((sum,e) => sum + (parseFloat(e.amount)||0), 0);
+
+  const businessName = db.settings?.businessName || 'your business';
+
+  const dataContext = `
+Business: ${businessName}
+Report date: ${now.toDateString()}
+
+LEADS:
+- New leads this week: ${newLeadsWeek}
+- Active leads (not won/lost): ${totalActiveLeads}
+- Total leads ever: ${totalLeads}
+- Won leads: ${wonLeads}
+- Conversion rate: ${conversionRate}%
+- Top lead source: ${topSource ? `${topSource[0]} (${topSource[1]} leads)` : 'Not enough data'}
+- All sources: ${JSON.stringify(sourceCount)}
+
+JOBS:
+- Active jobs right now: ${activeJobs.length}
+- Jobs completed this month: ${completedThisMonth}
+- Active job details: ${activeJobs.slice(0,5).map(j=>`${j.clientName||'?'} - ${j.serviceType||'?'} (${j.status})`).join(', ')}
+
+INVOICES:
+- Unpaid invoices: ${unpaidInvoices.length} totaling $${unpaidTotal.toFixed(0)}
+- Overdue invoices: ${overdueInvoices.length}
+- Overdue details: ${overdueInvoices.slice(0,3).map(i=>`${i.clientName||'?'} $${i.amount||0}`).join(', ')}
+
+ESTIMATES:
+- Pending estimates: ${pendingEstimates.length} totaling $${pendingEstValue.toFixed(0)}
+
+FOLLOW-UPS:
+- Open follow-ups: ${openFollowUps.length}
+- Overdue follow-ups: ${overdueFollowUps.length}
+`;
+
+  try {
+    // Call Supabase AI proxy
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      },
+      body: JSON.stringify({
+        user_id: currentUser.id,
+        messages: [{
+          role: 'user',
+          content: `You are a business advisor for a contractor. Analyze this data and give a concise weekly insights report. Be specific, actionable, and encouraging. Use bullet points. Highlight what's good, what needs attention, and 2-3 specific action items. Keep it under 300 words.\n\n${dataContext}`
+        }]
+      })
+    });
+
+    const result = await res.json();
+    const insights = result.content || result.message || result.error || 'Unable to generate insights.';
+
+    // Save insights to db
+    if(!db.weeklyInsights) db.weeklyInsights = [];
+    db.weeklyInsights.unshift({ date: now.toISOString(), content: insights });
+    if(db.weeklyInsights.length > 10) db.weeklyInsights = db.weeklyInsights.slice(0,10);
+    save();
+
+    // Show insights card
+    if(card) card.style.display = 'block';
+    if(prompt) prompt.style.display = 'none';
+    if(content) content.textContent = insights;
+    if(document.getElementById('insights-date')) document.getElementById('insights-date').textContent = `Generated ${now.toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'})}`;
+
+  } catch(e) {
+    console.error('Insights error:', e);
+    if(content) content.textContent = 'Could not generate insights. Check your internet connection and try again.';
+    if(card) card.style.display = 'block';
+    if(prompt) prompt.style.display = 'none';
+  }
+
+  if(btn) btn.textContent = '✨ Refresh';
+  if(btn) btn.disabled = false;
+}
+
+function loadSavedInsights(){
+  if(!db.weeklyInsights || !db.weeklyInsights.length) return;
+  const latest = db.weeklyInsights[0];
+  const card = document.getElementById('ai-insights-card');
+  const prompt = document.getElementById('ai-insights-prompt');
+  const content = document.getElementById('insights-content');
+  const dateEl = document.getElementById('insights-date');
+  if(card) card.style.display = 'block';
+  if(prompt) prompt.style.display = 'none';
+  if(content) content.textContent = latest.content;
+  if(dateEl) dateEl.textContent = `Generated ${new Date(latest.date).toLocaleDateString('en-US', {weekday:'long', month:'short', day:'numeric'})}`;
 }
 
 function processQuickEntry() {
