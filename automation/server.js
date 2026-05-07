@@ -197,9 +197,79 @@ app.post('/send-sms', async (req, res) => {
   res.json(result);
 });
 
+// ── FETCH CONTRACTOR SETTINGS FROM SUPABASE ───────────────────────────────────
+async function getContractorSettings(toPhone){
+  try {
+    // Look up which contractor owns this number
+    const { data, error } = await supabase
+      .from('user_data')
+      .select('data')
+      .filter('data->settings->receptionistPhone', 'eq', toPhone)
+      .single();
+
+    // If no match by phone, fall back to default (first user / test account)
+    if(error || !data){
+      const { data: fallback } = await supabase
+        .from('user_data')
+        .select('data')
+        .limit(1)
+        .single();
+      return fallback?.data?.settings || null;
+    }
+    return data?.data?.settings || null;
+  } catch(e) {
+    console.warn('Settings fetch error:', e.message);
+    return null;
+  }
+}
+
+function buildSystemPrompt(settings, leadData){
+  const businessName = settings?.businessName || 'this contractor business';
+  const receptionistName = settings?.receptionist?.name || 'Alex';
+  const services = settings?.receptionist?.services || 'roofing, plumbing, HVAC, concrete, and general contracting';
+  const tone = settings?.receptionist?.tone || 'Professional';
+  const openingMsg = settings?.receptionist?.openingMessage || '';
+  const customInstructions = settings?.receptionist?.customInstructions || '';
+  const enabled = settings?.receptionist?.enabled !== false;
+
+  const toneGuide = {
+    'Friendly & Casual': 'Be warm, friendly, and conversational — like texting a helpful neighbor.',
+    'Professional': 'Be professional and courteous — like a business receptionist.',
+    'Direct & Efficient': 'Be direct and efficient — get to the point quickly, no fluff.'
+  }[tone] || 'Be professional and courteous.';
+
+  return `You are ${receptionistName}, an AI receptionist for ${businessName}. Your job is to greet incoming leads, qualify them, and collect their information via SMS.
+
+${toneGuide}
+
+Services offered: ${services}
+
+Keep messages SHORT (1-3 sentences max) — this is SMS, not email.
+
+Your goal is to collect:
+1. Their first and last name
+2. What type of work they need
+3. Their city/location  
+4. Their timeline (how soon do they need work done)
+5. Rough budget (optional)
+
+Rules:
+- Ask ONE question at a time
+- Don't ask for info you already have
+- Once you have name + job type + location, say something like: "Perfect! I'll have someone from ${businessName} reach out shortly to schedule a free estimate. Anything else we should know?"
+- After that final message, end your response with: [LEAD_QUALIFIED]
+- If they seem uninterested or say wrong number, respond politely and end with: [NOT_A_LEAD]
+- Never say you're an AI unless directly asked
+${customInstructions ? `\nSpecial instructions: ${customInstructions}` : ''}
+${openingMsg ? `\nIf this is the first message, use this opening: "${openingMsg}"` : ''}
+
+Current info collected: ${JSON.stringify(leadData)}`;
+}
+
 // ── AI RECEPTIONIST — INBOUND SMS ─────────────────────────────────────────────
 app.post('/inbound-sms', async (req, res) => {
   const fromPhone = req.body.From;
+  const toPhone = req.body.To;
   const incomingMsg = req.body.Body;
   const twiml = new twilio.twiml.MessagingResponse();
 
@@ -210,6 +280,15 @@ app.post('/inbound-sms', async (req, res) => {
 
   console.log(`📨 Inbound SMS from ${fromPhone}: ${incomingMsg}`);
 
+  // Fetch contractor settings based on which number was texted
+  const settings = await getContractorSettings(toPhone);
+
+  // Check if receptionist is enabled
+  if(settings?.receptionist?.enabled === false){
+    console.log('Receptionist disabled for this number');
+    return res.type('text/xml').send(twiml.toString());
+  }
+
   // Load or create conversation
   if(!conversations[fromPhone]){
     conversations[fromPhone] = {
@@ -217,34 +296,18 @@ app.post('/inbound-sms', async (req, res) => {
       messages: [],
       leadData: {},
       qualified: false,
-      addedToHub: false
+      addedToHub: false,
+      settings: settings
     };
   }
 
   const convo = conversations[fromPhone];
+  // Update settings on each message in case they changed
+  if(settings) convo.settings = settings;
   convo.messages.push({ role: 'user', content: incomingMsg });
 
-  // Build Claude system prompt
-  const systemPrompt = `You are an AI receptionist for a contractor business using Blueprint Hub Operations. Your job is to warmly greet incoming leads, qualify them, and collect their information.
-
-Be conversational, friendly, and professional. Keep messages SHORT (1-3 sentences max) — this is SMS.
-
-Your goal is to collect:
-1. Their first and last name
-2. What type of work they need (roofing, plumbing, HVAC, concrete, etc.)
-3. Their city/location
-4. Their timeline (how soon do they need the work done)
-5. Rough budget (optional but helpful)
-
-Rules:
-- Ask ONE question at a time
-- Don't ask for info you already have
-- Once you have name + job type + location, say: "Perfect! I'll have someone reach out to you shortly to schedule a free estimate. Is there anything else you'd like us to know?"
-- After that final message, end your response with: [LEAD_QUALIFIED]
-- If they seem uninterested or say wrong number, respond politely and end with: [NOT_A_LEAD]
-- Never mention Blueprint Hub or that you're an AI unless directly asked
-
-Current conversation data collected so far: ${JSON.stringify(convo.leadData)}`;
+  // Build personalized Claude system prompt from contractor settings
+  const systemPrompt = buildSystemPrompt(convo.settings, convo.leadData);
 
   // Get Claude's response
   let aiReply = '';
@@ -291,7 +354,7 @@ Current conversation data collected so far: ${JSON.stringify(convo.leadData)}`;
           id: `L${Date.now()}`,
           name: convo.leadData.name || 'Unknown',
           phone: fromPhone,
-          source: 'AI Receptionist (SMS)',
+          source: `AI Receptionist (SMS) — ${convo.settings?.businessName || 'Blueprint Hub'}`,
           job_type: convo.leadData.job_type || 'Unknown',
           location: convo.leadData.location || '',
           status: 'New Lead',
