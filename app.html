@@ -1978,8 +1978,16 @@ FOLLOW-UPS:
       })
     });
 
-    const result = await res.json();
-    const insights = result.insights || result.summary || result.error || 'Unable to generate insights at this time.';
+    // Check if response is ok first
+    const rawText = await res.text();
+    let insights = 'Unable to generate insights at this time.';
+    try {
+      const result = JSON.parse(rawText);
+      insights = result.insights || result.summary || result.content || result.error || insights;
+    } catch(e) {
+      // If it's plain text, use it directly
+      if(rawText && rawText.length > 10 && !rawText.includes('No JSON')) insights = rawText;
+    }
 
     // Save insights to db
     if(!db.weeklyInsights) db.weeklyInsights = [];
