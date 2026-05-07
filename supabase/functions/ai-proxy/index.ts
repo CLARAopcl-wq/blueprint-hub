@@ -15,7 +15,103 @@ serve(async (req) => {
   }
 
   try {
-    const { message, settings } = await req.json();
+    const { message, settings, mode, headers: fileHeaders, sampleRows, targetType } = await req.json();
+
+    // ── INSIGHTS MODE ─────────────────────────────────────────────────────────
+    if (mode === 'insights') {
+      const ANTHROPIC_KEY_INS = Deno.env.get('ANTHROPIC_API_KEY');
+      if (!ANTHROPIC_KEY_INS) throw new Error('AI not configured');
+
+      const insResp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': ANTHROPIC_KEY_INS,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5',
+          max_tokens: 1024,
+          messages: [{ role: 'user', content: message }]
+        })
+      });
+
+      const insData = await insResp.json();
+      const insText = insData.content?.[0]?.text || 'Unable to generate insights.';
+
+      return new Response(JSON.stringify({ insights: insText }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // ── IMPORT MAPPING MODE ────────────────────────────────────────────────────
+    if (mode === 'import-map') {
+      const ANTHROPIC_KEY_IM = Deno.env.get('ANTHROPIC_API_KEY');
+      if (!ANTHROPIC_KEY_IM) throw new Error('AI not configured');
+
+      const fieldDefs: Record<string, string[]> = {
+        lead: ['firstName','lastName','phone','email','address','serviceType','source','status','dateAdded','followUpDate','value','assignedTo','notes'],
+        estimate: ['clientName','serviceType','amount','status','dateCreated','sentDate','followUpDate','approvedDate','notes'],
+        job: ['clientName','serviceType','value','status','startDate','endDate','assignedTo','priority','notes'],
+        invoice: ['clientName','amount','amountPaid','dateSent','dueDate','paymentDate','status','notes'],
+        followup: ['name','relatedType','relatedId','dueDate','reason','status','owner','notes'],
+        client: ['name','phone','email','serviceType','serviceAddress','billingAddress','firstJobDate','lastJobDate','status','notes'],
+      };
+
+      const fields = fieldDefs[targetType] || [];
+      const sampleText = (sampleRows || []).slice(0,3).map((row: any[], i: number) =>
+        `Row ${i+1}: ${(fileHeaders||[]).map((h: string, j: number) => `${h}=${row[j]??''}`).join(', ')}`
+      ).join('\n');
+
+      const mapPrompt = `You are a data mapping assistant for a contractor business app.
+
+The user is importing a spreadsheet with these columns: ${(fileHeaders||[]).join(', ')}
+
+Sample data:
+${sampleText}
+
+They want to import this as: ${targetType} records.
+
+The target fields are: ${fields.join(', ')}
+
+For each target field, identify which column index (0-based) best matches it. If no column matches, return -1.
+
+Also identify any date columns and money/amount columns by their index.
+
+Return ONLY valid JSON:
+{
+  "mappings": { "fieldName": columnIndex, ... },
+  "dateColumns": [array of column indexes that contain dates],
+  "moneyColumns": [array of column indexes that contain money/amounts],
+  "confidence": "high|medium|low",
+  "notes": "brief explanation of any uncertain mappings"
+}`;
+
+      const mapResp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': ANTHROPIC_KEY_IM,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5',
+          max_tokens: 1024,
+          messages: [{ role: 'user', content: mapPrompt }]
+        })
+      });
+
+      const mapData = await mapResp.json();
+      const rawMap = mapData.content[0].text.trim();
+      const jsonMatch = rawMap.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('No JSON in mapping response');
+      const mapping = JSON.parse(jsonMatch[0]);
+
+      return new Response(JSON.stringify(mapping), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    // ── END IMPORT MAPPING MODE ────────────────────────────────────────────────
 
     // ── RATE LIMITING ──────────────────────────────────────────────────────────
     // Get user from JWT
