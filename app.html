@@ -50,6 +50,39 @@ body{
 .topbar-logo{font-size:1.1rem;font-weight:900;}.topbar-logo span{color:var(--yellow);}
 .topbar-right{display:flex;align-items:center;gap:16px;}
 .topbar-right .username{color:var(--muted);font-size:0.85rem;}
+/* ── VIEW TOGGLE ── */
+.view-toggle{display:flex;gap:4px;background:var(--dark3);border-radius:8px;padding:3px;}
+.view-btn{background:none;border:none;color:var(--muted);padding:6px 14px;border-radius:6px;font-size:0.8rem;font-weight:600;cursor:pointer;transition:all 0.15s;}
+.view-btn.active{background:var(--dark2);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.3);}
+/* ── KANBAN BOARD ── */
+.kanban-board{display:flex;gap:14px;overflow-x:auto;padding-bottom:16px;min-height:70vh;align-items:flex-start;}
+.kanban-col{flex-shrink:0;width:240px;background:rgba(15,22,40,0.7);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;max-height:75vh;}
+.kanban-col-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:rgba(15,22,40,0.95);border-radius:12px 12px 0 0;backdrop-filter:blur(8px);}
+.kanban-col-title{font-size:0.8rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;}
+.kanban-col-count{background:var(--dark3);color:var(--muted);padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700;}
+.kanban-cards{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:80px;}
+.kanban-card{background:var(--dark2);border:1px solid var(--border);border-radius:8px;padding:12px;cursor:grab;transition:all 0.15s;position:relative;}
+.kanban-card:hover{border-color:rgba(46,111,212,0.4);transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,0.3);}
+.kanban-card.dragging{opacity:0.4;cursor:grabbing;}
+.kanban-card-name{font-weight:600;font-size:0.85rem;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kanban-card-service{font-size:0.75rem;color:var(--muted);margin-bottom:8px;}
+.kanban-card-meta{display:flex;align-items:center;justify-content:space-between;gap:4px;}
+.kanban-card-value{font-size:0.75rem;font-weight:700;color:var(--yellow);}
+.kanban-card-days{font-size:0.68rem;color:var(--muted);}
+.kanban-card-phone{font-size:0.72rem;color:var(--blue);margin-bottom:4px;}
+.kanban-card-edit{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.75rem;padding:2px 6px;border-radius:4px;opacity:0;transition:opacity 0.15s;}
+.kanban-card:hover .kanban-card-edit{opacity:1;}
+.kanban-drop-zone{border:2px dashed rgba(46,111,212,0.3);border-radius:8px;min-height:60px;transition:all 0.15s;}
+.kanban-drop-zone.drag-over{border-color:var(--blue);background:rgba(46,111,212,0.08);}
+.kanban-col[data-status="New"] .kanban-col-title{color:#60A5FA;}
+.kanban-col[data-status="Contacted"] .kanban-col-title{color:#A78BFA;}
+.kanban-col[data-status="Estimate Scheduled"] .kanban-col-title{color:#F59E0B;}
+.kanban-col[data-status="Estimate Sent"] .kanban-col-title{color:#FB923C;}
+.kanban-col[data-status="Won"] .kanban-col-title{color:#4ADE80;}
+.kanban-col[data-status="Lost"] .kanban-col-title{color:#F87171;}
+.kanban-col[data-status="Won"]{opacity:0.85;}
+.kanban-col[data-status="Lost"]{opacity:0.6;}
+
 .btn-logout{background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.82rem;transition:border-color 0.2s;}
 .btn-logout:hover{border-color:var(--yellow);color:var(--text);}
 
@@ -476,10 +509,21 @@ tr:hover td{background:rgba(255,255,255,0.02);}
           <div class="page-title" style="margin:0">Leads</div>
           <div class="table-controls">
             <input class="search-bar" id="search-leads" placeholder="🔍 Search leads..." oninput="renderLeads()"/>
+            <div class="view-toggle">
+              <button class="view-btn active" id="view-table-btn" onclick="setLeadsView('table')">☰ Table</button>
+              <button class="view-btn" id="view-kanban-btn" onclick="setLeadsView('kanban')">⬜ Kanban</button>
+            </div>
             <button class="btn-add" onclick="openModal('lead')">+ Add Lead</button>
           </div>
         </div>
-        <div class="table-wrap"><table id="leads-table"><thead><tr><th>ID</th><th>Date</th><th>Name</th><th>Phone</th><th>Service</th><th>Source</th><th>Status</th><th>Follow-Up</th><th>Value</th><th>Actions</th></tr></thead><tbody id="leads-tbody"></tbody></table></div>
+        <!-- TABLE VIEW -->
+        <div id="leads-table-view">
+          <div class="table-wrap"><table id="leads-table"><thead><tr><th>ID</th><th>Date</th><th>Name</th><th>Phone</th><th>Service</th><th>Source</th><th>Status</th><th>Follow-Up</th><th>Value</th><th>Actions</th></tr></thead><tbody id="leads-tbody"></tbody></table></div>
+        </div>
+        <!-- KANBAN VIEW -->
+        <div id="leads-kanban-view" style="display:none;">
+          <div class="kanban-board" id="kanban-board"></div>
+        </div>
       </div>
       <!-- ESTIMATES -->
       <div id="page-estimates" class="page">
@@ -1253,6 +1297,12 @@ function calcAutoStatus(inv){
 }
 
 function renderLeads(){
+  // Apply saved view preference
+  if(leadsView === 'kanban'){
+    setLeadsView('kanban');
+  } else {
+    setLeadsView('table');
+  }
   const tbody=document.getElementById('leads-tbody');
   const q=getSearch('search-leads');
   const filtered=db.leads.filter(l=>matchSearch(q,l.firstName,l.lastName,l.phone,l.email,l.serviceType,l.source,l.status,l.id));
@@ -1890,6 +1940,97 @@ function parseQuickEntry(text) {
     • "Follow up with Bob Johnson tomorrow"<br>
     • "New estimate for Dave, concrete, $8000"`;
   return result;
+}
+
+// ── KANBAN BOARD ─────────────────────────────────────────────────────────────
+let leadsView = localStorage.getItem('bh_leads_view') || 'table';
+let draggedLeadId = null;
+
+function setLeadsView(view){
+  leadsView = view;
+  localStorage.setItem('bh_leads_view', view);
+  document.getElementById('view-table-btn').classList.toggle('active', view === 'table');
+  document.getElementById('view-kanban-btn').classList.toggle('active', view === 'kanban');
+  document.getElementById('leads-table-view').style.display = view === 'table' ? '' : 'none';
+  document.getElementById('leads-kanban-view').style.display = view === 'kanban' ? '' : 'none';
+  if(view === 'kanban') renderKanban();
+}
+
+function renderKanban(){
+  const statuses = db.settings.leadStatuses || ['New','Contacted','Estimate Scheduled','Estimate Sent','Won','Lost'];
+  const q = (document.getElementById('search-leads')?.value || '').toLowerCase();
+  const filtered = db.leads.filter(l => !q ||
+    `${l.firstName} ${l.lastName} ${l.phone} ${l.serviceType} ${l.status}`.toLowerCase().includes(q)
+  );
+
+  const board = document.getElementById('kanban-board');
+  board.innerHTML = statuses.map(status => {
+    const cards = filtered.filter(l => l.status === status);
+    const totalValue = cards.reduce((s,l) => s + (parseFloat(l.value)||0), 0);
+    return `
+      <div class="kanban-col" data-status="${status}">
+        <div class="kanban-col-header">
+          <span class="kanban-col-title">${status}</span>
+          <span class="kanban-col-count">${cards.length}</span>
+        </div>
+        <div class="kanban-cards" id="kanban-col-${status.replace(/\s+/g,'-')}"
+          ondragover="kanbanDragOver(event)" ondrop="kanbanDrop(event,'${status}')"
+          ondragleave="kanbanDragLeave(event)">
+          ${cards.length === 0 ? `<div class="kanban-drop-zone" ondragover="kanbanDragOver(event)" ondrop="kanbanDrop(event,'${status}')" ondragleave="kanbanDragLeave(event)"></div>` : ''}
+          ${cards.map(l => {
+            const name = `${l.firstName||''} ${l.lastName||''}`.trim() || 'Unknown';
+            const days = l.dateAdded ? Math.floor((Date.now() - new Date(l.dateAdded)) / 86400000) : 0;
+            return `
+              <div class="kanban-card" draggable="true"
+                ondragstart="kanbanDragStart(event,'${l.id}')"
+                ondragend="kanbanDragEnd(event)">
+                <button class="kanban-card-edit" onclick="openModal('lead','${l.id}')">✎</button>
+                <div class="kanban-card-name">${name}</div>
+                ${l.phone ? `<div class="kanban-card-phone">📱 ${l.phone}</div>` : ''}
+                <div class="kanban-card-service">${l.serviceType||'—'} · ${l.source||'—'}</div>
+                <div class="kanban-card-meta">
+                  <span class="kanban-card-value">${l.value ? '$'+parseFloat(l.value).toLocaleString() : ''}</span>
+                  <span class="kanban-card-days">${days}d ago</span>
+                </div>
+              </div>`;
+          }).join('')}
+          ${totalValue > 0 ? `<div style="padding:6px 4px;font-size:0.72rem;color:var(--muted);text-align:right;border-top:1px solid var(--border);margin-top:4px;">Total: <strong style="color:var(--yellow)">$${totalValue.toLocaleString()}</strong></div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function kanbanDragStart(e, id){
+  draggedLeadId = id;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function kanbanDragEnd(e){
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.kanban-drop-zone').forEach(z => z.classList.remove('drag-over'));
+  document.querySelectorAll('.kanban-cards').forEach(c => c.classList.remove('drag-over'));
+}
+function kanbanDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function kanbanDragLeave(e){
+  e.currentTarget.classList.remove('drag-over');
+}
+function kanbanDrop(e, newStatus){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if(!draggedLeadId) return;
+  const lead = db.leads.find(l => l.id === draggedLeadId);
+  if(lead && lead.status !== newStatus){
+    lead.status = newStatus;
+    save();
+    renderKanban();
+    updateNavBadges();
+    showToast(`✅ Lead moved to ${newStatus}`);
+  }
+  draggedLeadId = null;
 }
 
 // ── AI WEEKLY INSIGHTS ───────────────────────────────────────────────────────
