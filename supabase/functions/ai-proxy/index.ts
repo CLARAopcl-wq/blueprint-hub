@@ -17,7 +17,7 @@ serve(async (req) => {
   try {
     const { message, settings, mode, headers: fileHeaders, sampleRows, targetType } = await req.json();
 
-    // ── INSIGHTS MODE ─────────────────────────────────────────────────────────
+    // ── INSIGHTS MODE v2 ──────────────────────────────────────────────────────
     if (mode === 'insights') {
       const ANTHROPIC_KEY_INS = Deno.env.get('ANTHROPIC_API_KEY');
       if (!ANTHROPIC_KEY_INS) throw new Error('AI not configured');
