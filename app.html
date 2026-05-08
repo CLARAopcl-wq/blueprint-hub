@@ -1812,8 +1812,11 @@ function saveModal(){
 
   // 📅 Sync to Google Calendar for jobs
   if(type === 'jobs' && db.settings.gcalEnabled){
-    if(isNew) addJobToCalendar(record);
-    else updateJobInCalendar(record);
+    const syncStatuses = ['Approved','Scheduled','In Progress','Completed'];
+    if(syncStatuses.includes(record.status)){
+      if(isNew) addJobToCalendar(record);
+      else updateJobInCalendar(record);
+    }
   }
 }
 
