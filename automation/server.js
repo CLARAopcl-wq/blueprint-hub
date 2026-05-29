@@ -389,6 +389,47 @@ app.post('/inbound-sms', async (req, res) => {
   res.type('text/xml').send(twiml.toString());
 });
 
+// ── PURE YUM REVIEWS ─────────────────────────────────────────────────────────
+app.post('/reviews/pure-yum', async (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  const { name, rating, review } = req.body;
+  if(!rating || !review) return res.status(400).json({ error: 'Rating and review required' });
+  try {
+    await supabase.from('pure_yum_reviews').insert({
+      name: name || 'Happy Customer',
+      rating: parseInt(rating),
+      review: review.trim(),
+      created_at: new Date().toISOString()
+    });
+    res.json({ success: true });
+  } catch(e) {
+    console.error('Review save error:', e.message);
+    res.json({ success: false, error: e.message });
+  }
+});
+
+app.get('/reviews/pure-yum', async (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  try {
+    const { data } = await supabase
+      .from('pure_yum_reviews')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    res.json({ reviews: data || [] });
+  } catch(e) {
+    res.json({ reviews: [] });
+  }
+});
+
+app.options('/reviews/pure-yum', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.sendStatus(200);
+});
+
 // ── VIEW RECEPTIONIST LEADS ───────────────────────────────────────────────────
 app.get('/receptionist-leads', async (req, res) => {
   try {
