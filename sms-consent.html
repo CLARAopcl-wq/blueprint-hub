@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SMS Consent — Blueprint Hub Operations</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0F1117;color:#E8EAF0;font-family:system-ui,sans-serif;padding:40px 24px;line-height:1.7;}
+.container{max-width:700px;margin:0 auto;}
+.logo{font-size:1.3rem;font-weight:700;color:#F5A623;margin-bottom:32px;display:block;text-decoration:none;}
+h1{font-size:1.6rem;margin-bottom:8px;}
+.subtitle{color:#8B90A0;margin-bottom:40px;}
+
+/* Opt-in flow demo */
+.flow-demo{background:#1A1D27;border:1px solid #2E3247;border-radius:12px;padding:32px;margin-bottom:40px;}
+.flow-demo h3{font-size:0.85rem;text-transform:uppercase;letter-spacing:2px;color:#F5A623;margin-bottom:20px;}
+.form-preview{background:#0F1117;border-radius:8px;padding:24px;}
+.form-preview h4{font-size:1rem;font-weight:600;margin-bottom:16px;}
+.field{margin-bottom:14px;}
+.field label{font-size:0.8rem;color:#8B90A0;display:block;margin-bottom:4px;}
+.field-mock{background:#1A1D27;border:1px solid #2E3247;border-radius:6px;padding:10px 14px;font-size:0.88rem;color:#8B90A0;}
+
+/* The consent box — this is what Twilio needs to see */
+.consent-box{background:#162038;border:1.5px solid #2E6FD4;border-radius:8px;padding:16px 18px;margin-top:16px;display:flex;align-items:flex-start;gap:12px;}
+.consent-checkbox{width:18px;height:18px;border:2px solid #2E6FD4;border-radius:3px;background:#1A1D27;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#F5A623;}
+.consent-text{font-size:0.82rem;color:#B0B8C8;line-height:1.6;}
+.consent-text strong{color:#E8EAF0;}
+.consent-text a{color:#F5A623;text-decoration:underline;}
+.btn-mock{background:#F5A623;color:#000;border:none;padding:12px 24px;border-radius:8px;font-weight:700;font-size:0.9rem;margin-top:16px;cursor:pointer;width:100%;}
+
+/* What they receive section */
+.examples{margin-top:32px;}
+.examples h3{font-size:0.85rem;text-transform:uppercase;letter-spacing:2px;color:#F5A623;margin-bottom:16px;}
+.sms-bubble{background:#1A1D27;border:1px solid #2E3247;border-radius:12px;padding:14px 18px;margin-bottom:12px;font-size:0.85rem;color:#B0B8C8;position:relative;}
+.sms-bubble .from{font-size:0.72rem;color:#F5A623;margin-bottom:6px;font-weight:600;}
+.sms-bubble .stop-note{font-size:0.72rem;color:#6B7280;margin-top:8px;}
+
+/* Policy bullets */
+.policy-list{margin-top:32px;}
+.policy-list h3{font-size:0.85rem;text-transform:uppercase;letter-spacing:2px;color:#F5A623;margin-bottom:16px;}
+.policy-list ul{list-style:none;display:flex;flex-direction:column;gap:10px;}
+.policy-list li{display:flex;align-items:flex-start;gap:10px;font-size:0.88rem;color:#B0B8C8;}
+.policy-list li::before{content:'✓';color:#4ADE80;font-weight:700;flex-shrink:0;margin-top:1px;}
+
+footer{margin-top:48px;padding-top:24px;border-top:1px solid #2E3247;font-size:0.78rem;color:#4B5563;}
+</style>
+</head>
+<body>
+<div class="container">
+  <a class="logo" href="/">Blueprint<span style="color:#fff">Hub</span> Operations</a>
+  <h1>SMS Messaging Consent</h1>
+  <p class="subtitle">How we collect consent and what messages contractors' customers receive.</p>
+
+  <!-- OPT-IN FLOW DEMO -->
+  <div class="flow-demo">
+    <h3>📋 Opt-In Flow — Lead Contact Form</h3>
+    <p style="font-size:0.82rem;color:#8B90A0;margin-bottom:20px;">When a lead contacts a contractor through Blueprint Hub, they see the following form with explicit SMS consent:</p>
+    <div class="form-preview">
+      <h4>Contact This Contractor</h4>
+      <div class="field">
+        <label>Your Name</label>
+        <div class="field-mock">John Smith</div>
+      </div>
+      <div class="field">
+        <label>Phone Number</label>
+        <div class="field-mock">(440) 555-0123</div>
+      </div>
+      <div class="field">
+        <label>What do you need help with?</label>
+        <div class="field-mock">Roof repair — shingles damaged from storm</div>
+      </div>
+
+      <!-- THE CONSENT LANGUAGE — explicit, separate from T&C -->
+      <div class="consent-box">
+        <div class="consent-checkbox">✓</div>
+        <div class="consent-text">
+          <strong>I agree to receive SMS text messages</strong> from this contractor via Blueprint Hub Operations regarding my service request. Messages may include appointment reminders, estimate follow-ups, and job updates. Message frequency varies. Message &amp; data rates may apply.
+          <br/><br/>
+          Reply <strong>STOP</strong> to opt out at any time. Reply <strong>HELP</strong> for help.
+          View our <a href="/terms.html">Terms of Service &amp; Privacy Policy</a>.
+        </div>
+      </div>
+      <button class="btn-mock">Send My Request →</button>
+    </div>
+  </div>
+
+  <!-- SAMPLE MESSAGES -->
+  <div class="examples">
+    <h3>📱 Sample Messages Recipients Receive</h3>
+    <div class="sms-bubble">
+      <div class="from">From: Blueprint Hub (on behalf of contractor)</div>
+      Hey John, this is Mike's Roofing. Got your request for roof repair — when's a good time to talk about it?
+      <div class="stop-note">Reply STOP to opt out.</div>
+    </div>
+    <div class="sms-bubble">
+      <div class="from">Estimate Follow-Up — Day 1</div>
+      Hey John, just wanted to make sure you saw the estimate we sent. Let me know if you have any questions!
+      <div class="stop-note">Reply STOP to opt out.</div>
+    </div>
+    <div class="sms-bubble">
+      <div class="from">Job Reminder</div>
+      Hey John, reminder that your roof repair is scheduled for Monday at 8am. See you then!
+      <div class="stop-note">Reply STOP to opt out.</div>
+    </div>
+  </div>
+
+  <!-- POLICY BULLETS -->
+  <div class="policy-list">
+    <h3>✅ Our Messaging Policy</h3>
+    <ul>
+      <li>Consent is obtained explicitly via checkbox before any messages are sent</li>
+      <li>Consent language is separate from Terms of Service — it is its own standalone checkbox</li>
+      <li>Recipients are told exactly what type of messages they will receive</li>
+      <li>Every message includes STOP opt-out instructions</li>
+      <li>STOP requests are processed immediately — no further messages sent</li>
+      <li>Message frequency is limited to service-related communications only</li>
+      <li>No marketing or promotional messages are sent without additional consent</li>
+    </ul>
+  </div>
+
+  <footer>
+    Blueprint Hub Operations · Owned and operated by Caymin Skytta · 3005 Rome Rock Creek Rd, Rock Creek, OH<br>
+    Contact: <a href="mailto:info@blueprinthub.llc" style="color:#F5A623;">info@blueprinthub.llc</a> · (440) 563-1200<br>
+    <a href="/terms.html" style="color:#F5A623;">Terms of Service &amp; Privacy Policy</a>
+  </footer>
+</div>
+</body>
+</html>
