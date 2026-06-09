@@ -2119,6 +2119,23 @@ async function generateInvoiceFromJob(jobId){
   const job = db.jobs.find(j => j.id === jobId);
   if(!job) return;
 
+  // Check plan — AI Invoice Generator is Pro+ only
+  const plan = db.subscription?.plan;
+  const hasAccess = plan === 'pro' || plan === 'agency';
+  if(!hasAccess){
+    document.getElementById('invoice-gen-overlay').classList.add('open');
+    document.getElementById('save-invoice-btn').style.display = 'none';
+    document.getElementById('view-invoice-btn').style.display = 'none';
+    document.getElementById('invoice-gen-body').innerHTML = `
+      <div style="text-align:center;padding:40px 24px;">
+        <div style="font-size:3rem;margin-bottom:16px;">🔒</div>
+        <div style="font-size:1rem;font-weight:700;margin-bottom:8px;">AI Invoice Generator</div>
+        <div style="color:var(--muted);font-size:0.88rem;margin-bottom:28px;line-height:1.7;">This feature is available on the <strong style="color:var(--yellow);">Pro</strong> and <strong style="color:#4CAF7D;">Agency</strong> plans.<br>Upgrade to automatically generate professional invoices from any job.</div>
+        <button onclick="closeInvoiceGen();showPage('settings',null);setTimeout(()=>document.getElementById('subscription-section')?.scrollIntoView({behavior:'smooth'}),300);" style="background:var(--yellow);border:none;color:#000;padding:12px 28px;border-radius:8px;font-weight:700;font-size:0.9rem;cursor:pointer;">⚡ Upgrade to Pro</button>
+      </div>`;
+    return;
+  }
+
   document.getElementById('invoice-gen-overlay').classList.add('open');
   document.getElementById('save-invoice-btn').style.display = 'none';
   document.getElementById('view-invoice-btn').style.display = 'none';
@@ -2518,6 +2535,19 @@ function kanbanDrop(e, newStatus){
 // ── AI WEEKLY INSIGHTS ───────────────────────────────────────────────────────
 async function generateInsights(){
   if(!currentUser) return;
+
+  // AI Weekly Insights is Pro+ only
+  const plan = db.subscription?.plan;
+  const hasAccess = plan === 'pro' || plan === 'agency';
+  if(!hasAccess){
+    const card = document.getElementById('ai-insights-card');
+    const prompt = document.getElementById('ai-insights-prompt');
+    if(card) card.style.display = 'block';
+    if(prompt) prompt.style.display = 'none';
+    document.getElementById('insights-content').innerHTML = `<div style="text-align:center;padding:20px 0;"><span style="font-size:1.5rem;">🔒</span><div style="margin-top:8px;font-size:0.88rem;color:var(--muted);">AI Weekly Insights is available on <strong style="color:var(--yellow);">Pro</strong> and <strong style="color:#4CAF7D;">Agency</strong> plans.</div><button onclick="showPage('settings',null);setTimeout(()=>document.getElementById('subscription-section')?.scrollIntoView({behavior:'smooth'}),300);" style="margin-top:14px;background:var(--yellow);border:none;color:#000;padding:8px 20px;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;">⚡ Upgrade</button></div>`;
+    return;
+  }
+
   const btn = document.getElementById('insights-btn');
   const content = document.getElementById('insights-content');
   const card = document.getElementById('ai-insights-card');
