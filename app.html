@@ -1499,8 +1499,17 @@ function renderSettings(){
   </div>`;
 
   // AI Receptionist settings
+  const receptionistPlan = db.subscription?.plan;
+  const receptionistAccess = receptionistPlan === 'pro' || receptionistPlan === 'agency';
   const r = s.receptionist || {};
-  const receptionistSection = `<div class="settings-card" style="grid-column:1/-1;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(59,130,246,0.05));border-color:rgba(99,102,241,0.25);">
+  const receptionistSection = !receptionistAccess
+    ? `<div class="settings-card" style="grid-column:1/-1;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(59,130,246,0.05));border-color:rgba(99,102,241,0.25);text-align:center;padding:32px;">
+        <div style="font-size:2rem;margin-bottom:8px;">🔒</div>
+        <div style="font-weight:700;margin-bottom:6px;">AI Receptionist</div>
+        <div style="font-size:0.82rem;color:var(--muted);margin-bottom:16px;">Automatically responds to leads via SMS. Available on Pro and Agency plans.</div>
+        <button onclick="document.getElementById('subscription-section')?.scrollIntoView({behavior:'smooth'});" style="background:var(--yellow);border:none;color:#000;padding:10px 24px;border-radius:8px;font-weight:700;cursor:pointer;">⚡ Upgrade to Pro</button>
+      </div>`
+    : `<div class="settings-card" style="grid-column:1/-1;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(59,130,246,0.05));border-color:rgba(99,102,241,0.25);">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <h3 style="margin:0;">🤖 AI Receptionist</h3>
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
@@ -1564,6 +1573,7 @@ function renderSettings(){
   </div>`;
 
   // Push Notifications section
+
   const pushEnabled = s.pushEnabled || false;
   const pushPermission = typeof Notification !== 'undefined' ? Notification.permission : 'default';
   const pushSection = `<div class="settings-card" style="background:linear-gradient(135deg,rgba(245,166,35,0.08),rgba(245,166,35,0.04));border-color:rgba(245,166,35,0.25);">
@@ -2446,6 +2456,15 @@ let leadsView = localStorage.getItem('bh_leads_view') || 'table';
 let draggedLeadId = null;
 
 function setLeadsView(view){
+  // Kanban is Pro+ only
+  if(view === 'kanban'){
+    const plan = db.subscription?.plan;
+    const hasAccess = plan === 'pro' || plan === 'agency';
+    if(!hasAccess){
+      showToast('⚡ Kanban view is available on Pro and Agency plans. Upgrade in Settings.');
+      return;
+    }
+  }
   leadsView = view;
   localStorage.setItem('bh_leads_view', view);
   document.getElementById('view-table-btn').classList.toggle('active', view === 'table');
