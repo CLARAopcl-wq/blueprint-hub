@@ -803,6 +803,8 @@ tr:hover td{background:rgba(255,255,255,0.02);}
       <div id="page-settings" class="page">
         <div class="page-title">Settings</div>
         <div class="settings-grid" id="settings-grid"></div>
+        <!-- SUBSCRIPTION PLANS -->
+        <div id="subscription-section" style="margin-top:24px;"></div>
         <div id="settings-signout"></div>
       </div>
     </div>
@@ -1439,6 +1441,7 @@ function renderSettings(){
   // Ensure teamMemberPhones exists
   if(!s.teamMemberPhones) s.teamMemberPhones={};
   setTimeout(renderSettingsSignOut, 50);
+  setTimeout(renderSubscriptionSection, 50);
 
   const sections=[
     {key:'leadStatuses',label:'Lead Statuses'},
@@ -1620,6 +1623,89 @@ function toggleGcal(){
   save();
   renderSettings();
 }
+const AUTOMATION_URL = 'https://blueprint-hub-production.up.railway.app';
+const STRIPE_PUB_KEY = 'pk_test_51TgF16Q0wV9of21BF994UTNjE7x5bjyDlXSIyFnEKwxB2G9qV274XADEEtBfUpGq7iu9ip5WNLxW3Z3zSsstgy2300PSLRhgTE';
+
+const PLANS_UI = [
+  { id:'starter', name:'Starter', price:49, color:'#5B8DEF', features:['Leads, Jobs, Invoices','AI Quick Entry','Import & Export','Google Calendar Sync','Email support'] },
+  { id:'pro', name:'Pro', price:149, color:'#F5A623', badge:'Most Popular', features:['Everything in Starter','AI Receptionist (SMS)','6 Automated Follow-ups','AI Weekly Insights','Kanban Board','Priority support'] },
+  { id:'agency', name:'Agency', price:297, color:'#4CAF7D', features:['Everything in Pro','Done-for-you setup','Monthly check-in call','White-label ready','Dedicated support'] }
+];
+
+function renderSubscriptionSection(){
+  const el = document.getElementById('subscription-section');
+  if(!el) return;
+  const sub = db.subscription || {};
+  const currentPlan = sub.plan || null;
+  const status = sub.status || null;
+  const isTrialing = status === 'trialing';
+  const isActive = status === 'active' || isTrialing;
+
+  el.innerHTML = `
+    <div style="padding:28px 0 8px;border-top:1px solid var(--border);margin-top:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div>
+          <div style="font-weight:700;font-size:0.95rem;">Blueprint Hub Subscription</div>
+          <div style="font-size:0.78rem;color:var(--muted);margin-top:3px;">
+            ${isTrialing ? '🎉 Free trial active' : isActive ? `✅ ${currentPlan ? currentPlan.charAt(0).toUpperCase()+currentPlan.slice(1) : ''} Plan — Active` : '⭐ 14-day free trial on any plan'}
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+        ${PLANS_UI.map(p => `
+          <div style="background:${currentPlan===p.id?'rgba(245,166,35,0.08)':' var(--dark3)'};border:1.5px solid ${currentPlan===p.id?'var(--yellow)':'var(--border)'};border-radius:12px;padding:20px;position:relative;">
+            ${p.badge ? `<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--yellow);color:#000;font-size:0.65rem;font-weight:800;padding:3px 12px;border-radius:20px;white-space:nowrap;">${p.badge}</div>` : ''}
+            <div style="font-size:0.72rem;font-weight:700;color:${p.color};text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">${p.name}</div>
+            <div style="font-size:1.6rem;font-weight:800;margin-bottom:12px;">$${p.price}<span style="font-size:0.75rem;color:var(--muted);font-weight:400;">/mo</span></div>
+            <ul style="list-style:none;display:flex;flex-direction:column;gap:5px;margin-bottom:16px;">
+              ${p.features.map(f=>`<li style="font-size:0.75rem;color:var(--muted);display:flex;align-items:center;gap:6px;"><span style="color:${p.color};">✓</span>${f}</li>`).join('')}
+            </ul>
+            ${currentPlan===p.id
+              ? `<div style="text-align:center;font-size:0.75rem;color:var(--yellow);font-weight:600;">Current Plan</div>`
+              : `<button onclick="startCheckout('${p.id}')" style="width:100%;background:${p.color};border:none;color:${p.id==='pro'?'#000':'#fff'};padding:10px;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;">
+                  ${isActive ? 'Switch Plan' : 'Start Free Trial'}
+                </button>`
+            }
+          </div>`).join('')}
+      </div>
+      <div style="margin-top:12px;font-size:0.72rem;color:var(--muted);text-align:center;">14-day free trial · No credit card required to start · Cancel anytime</div>
+    </div>`;
+}
+
+async function startCheckout(plan){
+  if(!currentUser) return;
+  const btn = event.target;
+  btn.textContent = 'Loading...';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${AUTOMATION_URL}/create-checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan, userId: currentUser.id, email: currentUser.email })
+    });
+    const data = await res.json();
+    if(data.url) window.location.href = data.url;
+    else throw new Error(data.error || 'Failed to create checkout');
+  } catch(e) {
+    btn.textContent = 'Start Free Trial';
+    btn.disabled = false;
+    alert('Could not start checkout: ' + e.message);
+  }
+}
+
+// Check for subscription success redirect
+(function checkSubscriptionRedirect(){
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('subscribed') === 'true'){
+    const plan = params.get('plan');
+    if(!db.subscription) db.subscription = {};
+    db.subscription = { status: 'trialing', plan };
+    save();
+    window.history.replaceState({}, '', window.location.pathname);
+    setTimeout(() => showToast('🎉 Subscription activated! Welcome to Blueprint Hub ' + (plan||'') + ' Plan.'), 1000);
+  }
+})();
+
 function renderSettingsSignOut(){
   const el = document.getElementById('settings-signout');
   if(!el) return;
