@@ -1103,6 +1103,7 @@ async function onSignedIn(user) {
   await loadUserData();
   hideLoader();
   document.getElementById('app').style.display='flex';
+  initPushNotifications();
   renderAll();
   restoreLastPage();
   updateNavBadges();
@@ -1541,6 +1542,26 @@ function renderSettings(){
     </div>
   </div>`;
 
+  // Push Notifications section
+  const pushEnabled = s.pushEnabled || false;
+  const pushPermission = typeof Notification !== 'undefined' ? Notification.permission : 'default';
+  const pushSection = `<div class="settings-card" style="background:linear-gradient(135deg,rgba(245,166,35,0.08),rgba(245,166,35,0.04));border-color:rgba(245,166,35,0.25);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <h3 style="margin:0;">🔔 Push Notifications</h3>
+      ${pushPermission === 'granted'
+        ? `<label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <span style="font-size:0.82rem;color:var(--muted);">${pushEnabled?'Active':'Inactive'}</span>
+            <div onclick="db.settings.pushEnabled=!db.settings.pushEnabled;save();renderSettings();" style="position:relative;width:44px;height:24px;background:${pushEnabled?'var(--yellow)':'var(--border)'};border-radius:25px;transition:background 0.2s;flex-shrink:0;">
+              <div style="position:absolute;top:3px;left:${pushEnabled?'23px':'3px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:left 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></div>
+            </div>
+          </label>`
+        : `<button onclick="requestPushPermission().then(ok=>{if(ok)renderSettings();})" style="background:var(--yellow);border:none;color:#000;padding:8px 18px;border-radius:8px;font-weight:700;font-size:0.8rem;cursor:pointer;">Enable Notifications</button>`
+      }
+    </div>
+    <div style="font-size:0.8rem;color:var(--muted);">Get notified instantly when new leads are added, invoices are overdue, or follow-ups are due — even when the app isn't open.</div>
+    ${pushPermission === 'granted' ? `<div style="margin-top:12px;padding:10px 14px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;font-size:0.78rem;color:#16a34a;">✅ Notifications are enabled on this device.</div>` : ''}
+  </div>`;
+
   // Google Calendar section
   const gcalConnected = !!localStorage.getItem('bh_gcal_token');
   const gcalSection = `<div class="settings-card" style="grid-column:1/-1;background:linear-gradient(135deg,rgba(66,133,244,0.08),rgba(52,168,83,0.05));border-color:rgba(66,133,244,0.25);">
@@ -1566,7 +1587,7 @@ function renderSettings(){
     </div>
   </div>`;
 
-  document.getElementById('settings-grid').innerHTML = receptionistSection + gcalSection + teamSection + sections.map(sec=>`
+  document.getElementById('settings-grid').innerHTML = receptionistSection + gcalSection + pushSection + teamSection + sections.map(sec=>`
     <div class="settings-card">
       <h3>${sec.label}</h3>
       <div class="settings-tags" id="tags-${sec.key}">
@@ -1888,6 +1909,9 @@ function saveModal(){
   renderDashboard();
   updateNavBadges();
 
+  // 🔔 Push notification for new records
+  if(isNew) triggerPushForRecord(type, record);
+
   // 🔥 Fire automations on new records
   if(isNew){
     if(type === 'leads') fireWebhook('lead-created', record);
@@ -2065,6 +2089,63 @@ function parseQuickEntry(text) {
     • "Follow up with Bob Johnson tomorrow"<br>
     • "New estimate for Dave, concrete, $8000"`;
   return result;
+}
+
+// ── PUSH NOTIFICATIONS ───────────────────────────────────────────────────────
+let swRegistration = null;
+
+async function initPushNotifications(){
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    swRegistration = await navigator.serviceWorker.register('/sw.js');
+    console.log('Service Worker registered');
+  } catch(e) {
+    console.warn('SW registration failed:', e);
+  }
+}
+
+async function requestPushPermission(){
+  if(!('Notification' in window)) {
+    showToast('Push notifications not supported in this browser.');
+    return false;
+  }
+  if(Notification.permission === 'granted') return true;
+  if(Notification.permission === 'denied') {
+    showToast('Push notifications are blocked. Enable them in your browser settings.');
+    return false;
+  }
+  const permission = await Notification.requestPermission();
+  if(permission === 'granted'){
+    showToast('✅ Push notifications enabled!');
+    if(db.settings) { db.settings.pushEnabled = true; save(); }
+    return true;
+  }
+  return false;
+}
+
+function sendLocalNotification(title, body, url = '/app.html'){
+  if(Notification.permission !== 'granted') return;
+  if(swRegistration){
+    swRegistration.showNotification(title, {
+      body, icon: '/images/bh-icon.png', tag: 'bh-' + Date.now(),
+      data: { url }, vibrate: [200, 100, 200]
+    });
+  } else {
+    new Notification(title, { body, icon: '/images/bh-icon.png' });
+  }
+}
+
+// Call on every new lead/invoice/followup save
+function triggerPushForRecord(type, record){
+  if(!db.settings?.pushEnabled || Notification.permission !== 'granted') return;
+  if(type === 'leads'){
+    const name = `${record.firstName||''} ${record.lastName||''}`.trim() || 'New Lead';
+    sendLocalNotification('🎯 New Lead Added', `${name} — ${record.serviceType||'Unknown service'}`, '/app.html');
+  } else if(type === 'invoices' && record.status === 'Overdue'){
+    sendLocalNotification('⚠️ Invoice Overdue', `${record.clientName||'Client'} — $${record.amount||0}`, '/app.html');
+  } else if(type === 'followups'){
+    sendLocalNotification('🔔 Follow-Up Due', `${record.name||'Contact'} — ${record.reason||'Follow up'}`, '/app.html');
+  }
 }
 
 // ── ACTIVITY CHART ───────────────────────────────────────────────────────────
