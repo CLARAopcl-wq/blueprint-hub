@@ -827,6 +827,27 @@ tr:hover td{background:rgba(255,255,255,0.02);}
   </div>
 </div>
 
+<!-- AI INVOICE GENERATOR MODAL -->
+<div class="crew-modal-overlay" id="invoice-gen-overlay" onclick="closeInvoiceGen()">
+  <div class="crew-modal" onclick="event.stopPropagation()" style="max-width:680px;">
+    <div class="crew-modal-header">
+      <span>🧾 Generate Invoice</span>
+      <button onclick="closeInvoiceGen()" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;">✕</button>
+    </div>
+    <div class="crew-modal-body" id="invoice-gen-body" style="max-height:75vh;overflow-y:auto;">
+      <div style="text-align:center;padding:40px 0;color:var(--muted);">
+        <div style="font-size:2rem;margin-bottom:12px;">🤖</div>
+        <div>Generating invoice...</div>
+      </div>
+    </div>
+    <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="closeInvoiceGen()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:10px 20px;border-radius:8px;cursor:pointer;">Cancel</button>
+      <button id="save-invoice-btn" onclick="saveGeneratedInvoice()" style="background:var(--green);border:none;color:#fff;padding:10px 24px;border-radius:8px;font-weight:700;cursor:pointer;display:none;">✅ Save Invoice</button>
+      <button id="view-invoice-btn" onclick="viewGeneratedInvoice()" style="background:var(--yellow);border:none;color:#000;padding:10px 24px;border-radius:8px;font-weight:700;cursor:pointer;display:none;">👁 View PDF</button>
+    </div>
+  </div>
+</div>
+
 <!-- CREW NOTIFICATION MODAL -->
 <div class="crew-modal-overlay" id="crew-modal-overlay">
   <div class="crew-modal">
@@ -1384,7 +1405,7 @@ function renderJobs(){
     <td>${badge(j.status)}</td><td>${fmt(j.startDate)}</td>
     <td>${fmt(j.endDate)}</td><td>${j.assignedTo||'—'}</td>
     <td>${badge(j.priority)}</td>
-    <td><button class="btn-notify" onclick="openCrewModal('${j.id}')">📲</button><button class="btn-edit" onclick="openModal('job','${j.id}')">Edit</button><button class="btn-delete" onclick="deleteRecord('jobs','${j.id}')">Delete</button></td>
+    <td><button class="btn-notify" onclick="openCrewModal('${j.id}')">📲</button><button class="btn-edit" onclick="openModal('job','${j.id}')">Edit</button><button style="background:rgba(75,175,125,0.15);border:1px solid rgba(75,175,125,0.3);color:#4CAF7D;padding:5px 10px;border-radius:6px;font-size:0.75rem;cursor:pointer;font-weight:600;" onclick="generateInvoiceFromJob('${j.id}')">🧾 Invoice</button><button class="btn-delete" onclick="deleteRecord('jobs','${j.id}')">Delete</button></td>
   </tr>`).join('');
 }
 
@@ -2089,6 +2110,158 @@ function parseQuickEntry(text) {
     • "Follow up with Bob Johnson tomorrow"<br>
     • "New estimate for Dave, concrete, $8000"`;
   return result;
+}
+
+// ── AI INVOICE GENERATOR ─────────────────────────────────────────────────────
+let generatedInvoiceData = null;
+
+async function generateInvoiceFromJob(jobId){
+  const job = db.jobs.find(j => j.id === jobId);
+  if(!job) return;
+
+  document.getElementById('invoice-gen-overlay').classList.add('open');
+  document.getElementById('save-invoice-btn').style.display = 'none';
+  document.getElementById('view-invoice-btn').style.display = 'none';
+  document.getElementById('invoice-gen-body').innerHTML = `
+    <div style="text-align:center;padding:40px 0;color:var(--muted);">
+      <div style="font-size:2rem;margin-bottom:12px;">🤖</div>
+      <div>Claude is building your invoice...</div>
+    </div>`;
+
+  // Get linked client info
+  const client = db.clients.find(c => c.name === job.clientName);
+  const businessName = db.settings?.businessName || 'Your Business';
+  const businessPhone = db.settings?.teamMemberPhones?.Owner || '';
+
+  // Ask Claude to generate line items
+  let lineItems = [];
+  try {
+    const prompt = `You are a contractor invoice assistant. Generate professional line items for this job:
+
+Job type: ${job.serviceType || 'General contractor work'}
+Client: ${job.clientName || 'Client'}
+Total value: $${job.value || '0'}
+Notes: ${job.notes || 'No notes'}
+Start date: ${job.startDate || ''}
+End date: ${job.endDate || ''}
+
+Generate 2-5 specific line items that would be typical for this type of job. Break down the total into realistic line items.
+Return ONLY valid JSON array: [{"description": "...", "amount": 000.00}, ...]
+Make the total equal to ${job.value || '0'}.`;
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-proxy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+      body: JSON.stringify({ mode: 'insights', message: prompt })
+    });
+    const result = await res.json();
+    const text = result.insights || '';
+    const match = text.match(/\[[\s\S]*\]/);
+    if(match) lineItems = JSON.parse(match[0]);
+  } catch(e) {
+    // Fallback to single line item
+    lineItems = [{ description: `${job.serviceType || 'Services'} — ${job.notes || 'As agreed'}`, amount: parseFloat(job.value) || 0 }];
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const dueDate = new Date(Date.now() + 30*86400000).toISOString().split('T')[0];
+  const invoiceNum = `INV-${new Date().getFullYear()}-${String(db.invoices.length + 1).padStart(3,'0')}`;
+
+  generatedInvoiceData = {
+    invoiceNum, job, client, lineItems, businessName, businessPhone,
+    today, dueDate,
+    total: lineItems.reduce((s, i) => s + (i.amount || 0), 0)
+  };
+
+  // Render the invoice preview
+  document.getElementById('invoice-gen-body').innerHTML = `
+    <div style="background:var(--dark3);border-radius:10px;padding:20px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+        <div>
+          <div style="font-size:1.1rem;font-weight:700;">${businessName}</div>
+          ${businessPhone ? `<div style="font-size:0.8rem;color:var(--muted);">${businessPhone}</div>` : ''}
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Invoice</div>
+          <div style="font-size:0.9rem;font-weight:700;">${invoiceNum}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:40px;margin-bottom:20px;font-size:0.82rem;">
+        <div><div style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;margin-bottom:3px;">Bill To</div><strong>${job.clientName || '—'}</strong></div>
+        <div><div style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;margin-bottom:3px;">Date</div>${today}</div>
+        <div><div style="color:var(--muted);font-size:0.7rem;text-transform:uppercase;margin-bottom:3px;">Due</div>${dueDate}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:0.84rem;">
+        <thead><tr style="border-bottom:1px solid var(--border);">
+          <th style="text-align:left;padding:8px 0;color:var(--muted);font-size:0.7rem;text-transform:uppercase;">Description</th>
+          <th style="text-align:right;padding:8px 0;color:var(--muted);font-size:0.7rem;text-transform:uppercase;">Amount</th>
+        </tr></thead>
+        <tbody>
+          ${lineItems.map(li => `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+            <td style="padding:10px 0;">${li.description}</td>
+            <td style="text-align:right;padding:10px 0;font-weight:600;">$${parseFloat(li.amount||0).toFixed(2)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="text-align:right;">
+          <div style="font-size:0.78rem;color:var(--muted);">Total Due</div>
+          <div style="font-size:1.4rem;font-weight:800;color:var(--yellow);">$${generatedInvoiceData.total.toFixed(2)}</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:0.78rem;color:var(--muted);text-align:center;">Review the line items above. Save to add to your Invoices tab, or View PDF to print/send.</div>`;
+
+  document.getElementById('save-invoice-btn').style.display = 'block';
+  document.getElementById('view-invoice-btn').style.display = 'block';
+}
+
+function closeInvoiceGen(){
+  document.getElementById('invoice-gen-overlay').classList.remove('open');
+  generatedInvoiceData = null;
+}
+
+function saveGeneratedInvoice(){
+  if(!generatedInvoiceData) return;
+  const { invoiceNum, job, lineItems, today, dueDate, total } = generatedInvoiceData;
+  const invoice = {
+    id: invoiceNum,
+    clientName: job.clientName,
+    linkedJobId: job.id,
+    amount: total.toFixed(2),
+    amountPaid: '0',
+    dateSent: today,
+    dueDate: dueDate,
+    status: 'Unpaid',
+    notes: lineItems.map(li => `${li.description}: $${li.amount}`).join('\n')
+  };
+  db.invoices.push(invoice);
+  save();
+  closeInvoiceGen();
+  showPage('invoices', document.querySelector('.nav-item[id="nav-invoices"]'));
+  renderInvoices();
+  updateNavBadges();
+  showToast(`✅ Invoice ${invoiceNum} saved!`);
+}
+
+function viewGeneratedInvoice(){
+  if(!generatedInvoiceData) return;
+  const { invoiceNum, job, lineItems, businessName, businessPhone, today, dueDate, total } = generatedInvoiceData;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${invoiceNum}</title>
+  <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Helvetica Neue',Arial,sans-serif;background:#f4f4f4;padding:40px 20px;}.invoice{background:#fff;max-width:700px;margin:0 auto;border-radius:4px;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,0.1);}.header{background:#1a2744;color:#fff;padding:32px 40px;display:flex;justify-content:space-between;align-items:flex-start;}.company h2{font-size:1.5rem;font-weight:700;}.company p{font-size:0.8rem;opacity:0.6;margin-top:4px;}.inv-label{text-align:right;}.inv-label h3{font-size:1.6rem;font-weight:300;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,0.9);}.inv-label p{font-size:0.78rem;opacity:0.5;margin-top:4px;}.body{padding:32px 40px;}.meta{display:flex;gap:40px;margin-bottom:28px;font-size:0.85rem;}.meta-block h4{font-size:0.65rem;text-transform:uppercase;letter-spacing:2px;color:#888;margin-bottom:4px;}table{width:100%;border-collapse:collapse;}thead tr{background:#1a2744;color:#fff;}th{padding:10px 14px;text-align:left;font-size:0.72rem;text-transform:uppercase;}th:last-child{text-align:right;}tbody td{padding:12px 14px;border-bottom:1px solid #f0f0f0;font-size:0.86rem;}tbody td:last-child{text-align:right;font-weight:600;}.total-row{display:flex;justify-content:flex-end;margin-top:20px;}.total-box{min-width:220px;}.tr{display:flex;justify-content:space-between;padding:8px 0;font-size:0.86rem;border-bottom:1px solid #f0f0f0;}.tr.big{border:none;margin-top:8px;padding-top:10px;border-top:2px solid #1a2744;font-size:1rem;font-weight:700;color:#1a2744;}.footer{background:#f8f9fc;padding:20px 40px;font-size:0.78rem;color:#666;border-top:1px solid #eee;}</style>
+  </head><body><div class="invoice">
+  <div class="header"><div class="company"><h2>${businessName}</h2>${businessPhone?`<p>${businessPhone}</p>`:''}</div><div class="inv-label"><h3>Invoice</h3><p>#${invoiceNum}</p></div></div>
+  <div class="body"><div class="meta"><div class="meta-block"><h4>Bill To</h4><strong>${job.clientName||'—'}</strong></div><div class="meta-block"><h4>Date</h4>${today}</div><div class="meta-block"><h4>Due Date</h4>${dueDate}</div></div>
+  <table><thead><tr><th>Description</th><th style="text-align:right">Amount</th></tr></thead><tbody>
+  ${lineItems.map(li=>`<tr><td>${li.description}</td><td>$${parseFloat(li.amount||0).toFixed(2)}</td></tr>`).join('')}
+  </tbody></table>
+  <div class="total-row"><div class="total-box"><div class="tr"><span>Subtotal</span><span>$${total.toFixed(2)}</span></div><div class="tr big"><span>Total Due</span><span>$${total.toFixed(2)}</span></div></div></div></div>
+  <div class="footer">Payment due within 30 days. Thank you for your business!</div>
+  </div><script>window.print();</script></body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
 }
 
 // ── PUSH NOTIFICATIONS ───────────────────────────────────────────────────────
