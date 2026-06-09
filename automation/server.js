@@ -3,6 +3,7 @@ const twilio = require('twilio');
 const cron = require('node-cron');
 const Anthropic = require('@anthropic-ai/sdk');
 const { createClient } = require('@supabase/supabase-js');
+const Stripe = require('stripe');
 
 const app = express();
 app.use(express.json());
@@ -19,6 +20,13 @@ const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 const client = twilio(TWILIO_SID, TWILIO_TOKEN);
 const claude = new Anthropic({ apiKey: ANTHROPIC_KEY });
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+
+const PLANS = {
+  starter: { priceId: 'price_1TgFGCQ0wV9of21BnRULmTvX', name: 'Starter', amount: 49 },
+  pro:     { priceId: 'price_1TgFFEQ0wV9of21BH0BSo0ak', name: 'Pro',     amount: 149 },
+  agency:  { priceId: 'price_1TgFE4Q0wV9of21BEdBGYibu', name: 'Agency',  amount: 297 }
+};
 
 // In-memory conversation store (backs up to Supabase)
 const conversations = {};
@@ -439,6 +447,75 @@ app.get('/receptionist-leads', async (req, res) => {
   } catch(e) {
     res.json({ leads: [], active_conversations: Object.keys(conversations).length, error: e.message });
   }
+});
+
+// ── STRIPE SUBSCRIPTION ───────────────────────────────────────────────────────
+app.post('/create-checkout', async (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  const { plan, userId, email } = req.body;
+  if(!plan || !PLANS[plan]) return res.status(400).json({ error: 'Invalid plan' });
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'subscription',
+      customer_email: email,
+      line_items: [{ price: PLANS[plan].priceId, quantity: 1 }],
+      subscription_data: {
+        trial_period_days: 14,
+        metadata: { userId, plan }
+      },
+      success_url: `https://blueprinthub.llc/app.html?subscribed=true&plan=${plan}`,
+      cancel_url: `https://blueprinthub.llc/app.html?canceled=true`,
+      metadata: { userId, plan }
+    });
+    res.json({ url: session.url });
+  } catch(e) {
+    console.error('Stripe error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.options('/create-checkout', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.sendStatus(200);
+});
+
+// Webhook to update Supabase when subscription changes
+app.post('/stripe-webhook', express.raw({type: 'application/json'}), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+  } catch(e) {
+    return res.status(400).send(`Webhook Error: ${e.message}`);
+  }
+
+  if(event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated'){
+    const sub = event.data.object;
+    const userId = sub.metadata?.userId;
+    if(userId){
+      await supabase.from('user_data')
+        .update({ subscription: { status: sub.status, plan: sub.metadata?.plan, subscriptionId: sub.id } })
+        .eq('user_id', userId);
+    }
+  }
+
+  if(event.type === 'customer.subscription.deleted'){
+    const sub = event.data.object;
+    const userId = sub.metadata?.userId;
+    if(userId){
+      await supabase.from('user_data')
+        .update({ subscription: { status: 'canceled', plan: null } })
+        .eq('user_id', userId);
+    }
+  }
+
+  res.json({ received: true });
 });
 
 // ── HEALTH CHECK ──────────────────────────────────────────────────────────────
