@@ -6,7 +6,7 @@
 <title>Blueprint Hub Operations</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;Blueprint Hub Operations&quot;,&quot;short_name&quot;:&quot;BH Ops&quot;,&quot;start_url&quot;:&quot;./app.html&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%230F1117&quot;,&quot;theme_color&quot;:&quot;%23F5A623&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;https://via.placeholder.com/192x192/F5A623/000000?text=BH&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/png&quot;}]}"/>
 <meta name="theme-color" content="#F5A623"/>
@@ -375,8 +375,11 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 
 <!-- LOADER -->
 <div id="app-loader">
-  <div class="spinner"></div>
-  <div class="spinner-label">Loading Blueprint Hub...</div>
+  <div style="text-align:center;">
+    <div style="font-family:system-ui,sans-serif;font-size:1.4rem;font-weight:800;color:#F5A623;margin-bottom:20px;letter-spacing:1px;">Blueprint<span style="color:#fff">Hub</span></div>
+    <div class="spinner"></div>
+    <div class="spinner-label" id="loader-msg">Loading...</div>
+  </div>
 </div>
 
 <!-- LOGIN -->
