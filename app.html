@@ -2287,11 +2287,11 @@ function viewGeneratedInvoice(){
   </tbody></table>
   <div class="total-row"><div class="total-box"><div class="tr"><span>Subtotal</span><span>$${total.toFixed(2)}</span></div><div class="tr big"><span>Total Due</span><span>$${total.toFixed(2)}</span></div></div></div></div>
   <div class="footer">Payment due within 30 days. Thank you for your business!</div>
-  </div><script>window.print();</script></body></html>`;
+  </div><script>window.print();<\/script><\/body><\/html>`;
 
-  const win = window.open('', '_blank');
-  win.document.write(html);
-  win.document.close();
+  const blob = new Blob([html], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
 }
 
 // ── PUSH NOTIFICATIONS ───────────────────────────────────────────────────────
