@@ -2610,7 +2610,10 @@ tbody td:last-child{text-align:right;font-weight:600;}
   const sharedHeader = `<div class="header">
     <div>
       <div class="biz-name">${biz}</div>
+      ${bizOwner ? `<div class="biz-detail" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:2px;color:#777;">${bizOwner}</div>` : ''}
+      ${bizAddr ? `<div class="biz-detail">${bizAddr}</div>` : ''}
       ${bizPhone ? `<div class="biz-detail">${bizPhone}</div>` : ''}
+      ${bizEmail ? `<div class="biz-detail">${bizEmail}</div>` : ''}
     </div>
     <div class="doc-label">
       <h2>${currentDocType === 'quote' ? 'Quote' : currentDocType === 'contract' ? 'Contract' : 'Invoice'}</h2>
