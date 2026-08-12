@@ -1596,6 +1596,44 @@ function renderSettings(){
   const receptionistPlan = db.subscription?.plan;
   const receptionistAccess = receptionistPlan === 'pro' || receptionistPlan === 'agency';
   const r = s.receptionist || {};
+  // Business Info section
+  const bizInfoSection = `<div class="settings-card" style="grid-column:1/-1;background:linear-gradient(135deg,rgba(245,166,35,0.08),rgba(245,166,35,0.04));border-color:rgba(245,166,35,0.25);">
+    <h3 style="margin-bottom:16px;">🏢 Business Information</h3>
+    <div style="color:var(--muted);font-size:0.8rem;margin-bottom:20px;">This information appears on all generated documents (quotes, contracts, invoices).</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:6px;">Business Name *</label>
+        <input type="text" placeholder="e.g. Skytta Construction" value="${s.businessName||''}"
+          onchange="db.settings.businessName=this.value;save();"
+          style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;color:var(--text);outline:none;"/>
+      </div>
+      <div>
+        <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:6px;">Owner / Contact Name</label>
+        <input type="text" placeholder="e.g. Caymin Skytta" value="${s.ownerName||''}"
+          onchange="db.settings.ownerName=this.value;save();"
+          style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;color:var(--text);outline:none;"/>
+      </div>
+      <div>
+        <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:6px;">Business Phone</label>
+        <input type="tel" placeholder="(440) 000-0000" value="${s.businessPhone||''}"
+          onchange="db.settings.businessPhone=this.value;save();"
+          style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;color:var(--text);outline:none;"/>
+      </div>
+      <div>
+        <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:6px;">Business Email</label>
+        <input type="email" placeholder="you@example.com" value="${s.businessEmail||''}"
+          onchange="db.settings.businessEmail=this.value;save();"
+          style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;color:var(--text);outline:none;"/>
+      </div>
+      <div style="grid-column:1/-1;">
+        <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:6px;">Business Address</label>
+        <input type="text" placeholder="123 Main St, City, State ZIP" value="${s.businessAddress||''}"
+          onchange="db.settings.businessAddress=this.value;save();"
+          style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;color:var(--text);outline:none;"/>
+      </div>
+    </div>
+  </div>`;
+
   const receptionistSection = !receptionistAccess
     ? `<div class="settings-card" style="grid-column:1/-1;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(59,130,246,0.05));border-color:rgba(99,102,241,0.25);text-align:center;padding:32px;">
         <div style="font-size:2rem;margin-bottom:8px;">🔒</div>
@@ -1712,7 +1750,7 @@ function renderSettings(){
     </div>
   </div>`;
 
-  document.getElementById('settings-grid').innerHTML = receptionistSection + gcalSection + pushSection + teamSection + sections.map(sec=>`
+  document.getElementById('settings-grid').innerHTML = bizInfoSection + receptionistSection + gcalSection + pushSection + teamSection + sections.map(sec=>`
     <div class="settings-card">
       <h3>${sec.label}</h3>
       <div class="settings-tags" id="tags-${sec.key}">
@@ -2510,8 +2548,10 @@ function initDocumentsPage(){
 
 function generateDocument(){
   const biz = db.settings?.businessName || 'Your Business';
-  const bizPhone = Object.values(db.settings?.teamMemberPhones || {})[0] || '';
-  const bizAddr = ''; // Could add to settings later
+  const bizPhone = db.settings?.businessPhone || Object.values(db.settings?.teamMemberPhones || {})[0] || '';
+  const bizAddr = db.settings?.businessAddress || '';
+  const bizEmail = db.settings?.businessEmail || '';
+  const bizOwner = db.settings?.ownerName || '';
   const client = document.getElementById('doc-client').value.trim();
   const clientAddr = document.getElementById('doc-address').value.trim();
   const clientPhone = document.getElementById('doc-phone').value.trim();
