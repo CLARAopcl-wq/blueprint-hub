@@ -57,6 +57,11 @@ body{
 .chart-legend-item{display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--muted);}
 .chart-legend-item::before{content:'';width:12px;height:3px;border-radius:2px;background:var(--c);}
 
+/* ── DOCUMENTS TAB ── */
+.doc-type-btn{flex:1;background:none;border:none;color:var(--muted);padding:10px 8px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+.doc-type-btn.active{background:var(--yellow);color:#000;}
+.doc-type-btn:hover:not(.active){background:var(--dark2);color:var(--text);}
+
 /* ── VIEW TOGGLE ── */
 .view-toggle{display:flex;gap:4px;background:var(--dark3);border-radius:8px;padding:3px;}
 .view-btn{background:none;border:none;color:var(--muted);padding:6px 14px;border-radius:6px;font-size:0.8rem;font-weight:600;cursor:pointer;transition:all 0.15s;}
@@ -444,6 +449,7 @@ tr:hover td{background:rgba(255,255,255,0.02);}
     <div class="sidebar" id="sidebar">
       <div class="sidebar-nav">
         <div class="nav-item active" onclick="showPage('dashboard',this);closeSidebar()"><span class="nav-icon">📊</span>Dashboard</div>
+        <div class="nav-item" onclick="showPage('documents',this);closeSidebar()"><span class="nav-icon">📄</span>Documents</div>
         <div class="nav-item" id="nav-leads" onclick="showPage('leads',this);closeSidebar()"><span class="nav-icon">📋</span>Leads</div>
         <div class="nav-item" id="nav-estimates" onclick="showPage('estimates',this);closeSidebar()"><span class="nav-icon">📐</span>Estimates</div>
         <div class="nav-item" id="nav-jobs" onclick="showPage('jobs',this);closeSidebar()"><span class="nav-icon">🏗️</span>Jobs</div>
@@ -541,6 +547,91 @@ tr:hover td{background:rgba(255,255,255,0.02);}
           </div>
         </div>
       </div>
+      <!-- DOCUMENTS -->
+      <div id="page-documents" class="page">
+        <div class="page-title">Documents</div>
+        <p style="color:var(--muted);font-size:0.88rem;margin-bottom:24px;">Generate professional quotes, contracts, and invoices using your business information.</p>
+
+        <!-- DOCUMENT TYPE SELECTOR -->
+        <div style="display:flex;gap:8px;margin-bottom:32px;background:var(--dark3);border-radius:12px;padding:4px;">
+          <button class="doc-type-btn active" onclick="selectDocType('quote',this)" data-type="quote">📋 Quote</button>
+          <button class="doc-type-btn" onclick="selectDocType('contract',this)" data-type="contract">📝 Contract</button>
+          <button class="doc-type-btn" onclick="selectDocType('invoice',this)" data-type="invoice">🧾 Invoice</button>
+        </div>
+
+        <!-- TEMPLATE PREVIEW -->
+        <div id="doc-preview-area" style="background:var(--dark2);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px;min-height:120px;display:flex;align-items:center;gap:20px;">
+          <div id="doc-preview-icon" style="font-size:3rem;">📋</div>
+          <div>
+            <div id="doc-preview-title" style="font-weight:700;font-size:1rem;margin-bottom:4px;">Quote / Estimate</div>
+            <div id="doc-preview-desc" style="font-size:0.82rem;color:var(--muted);line-height:1.6;">Professional price estimate for clients. Includes your business info, scope of work, total price, and 30-day validity. No signature required.</div>
+          </div>
+        </div>
+
+        <!-- DOCUMENT FORM -->
+        <div id="doc-form" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>Client Name *</label>
+            <input type="text" id="doc-client" placeholder="John Smith" list="doc-client-list"/>
+            <datalist id="doc-client-list"></datalist>
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>Client Address</label>
+            <input type="text" id="doc-address" placeholder="123 Main St, City, OH"/>
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>Project / Job Description</label>
+            <textarea id="doc-description" placeholder="Describe the scope of work..." style="min-height:80px;resize:vertical;"></textarea>
+          </div>
+
+          <!-- Quote / Invoice fields -->
+          <div class="form-group" id="doc-amount-group">
+            <label>Total Amount ($)</label>
+            <input type="number" id="doc-amount" placeholder="0.00"/>
+          </div>
+          <div class="form-group" id="doc-date-group">
+            <label>Document Date</label>
+            <input type="date" id="doc-date"/>
+          </div>
+
+          <!-- Contract-specific fields -->
+          <div class="form-group" id="doc-draw1-group" style="display:none;">
+            <label>Draw 1 Amount ($)</label>
+            <input type="number" id="doc-draw1" placeholder="0.00"/>
+          </div>
+          <div class="form-group" id="doc-draw2-group" style="display:none;">
+            <label>Draw 2 Amount ($)</label>
+            <input type="number" id="doc-draw2" placeholder="0.00"/>
+          </div>
+
+          <!-- Invoice-specific -->
+          <div class="form-group" id="doc-due-group" style="display:none;">
+            <label>Due Date</label>
+            <input type="date" id="doc-due"/>
+          </div>
+          <div class="form-group" id="doc-paid-group" style="display:none;">
+            <label>Paid?</label>
+            <select id="doc-paid">
+              <option value="">Not paid</option>
+              <option value="cash">Cash Paid in Full</option>
+              <option value="check">Check Paid in Full</option>
+            </select>
+          </div>
+
+          <!-- Doc number -->
+          <div class="form-group">
+            <label>Document Number</label>
+            <input type="text" id="doc-number" placeholder="e.g. SC-2026-001"/>
+          </div>
+          <div class="form-group">
+            <label>Client Phone (optional)</label>
+            <input type="tel" id="doc-phone" placeholder="(440) 000-0000"/>
+          </div>
+        </div>
+
+        <button onclick="generateDocument()" style="width:100%;background:var(--yellow);border:none;color:#000;padding:16px;border-radius:10px;font-weight:800;font-size:1rem;cursor:pointer;letter-spacing:0.5px;">📄 Generate &amp; Open PDF</button>
+      </div>
+
       <!-- LEADS -->
       <div id="page-leads" class="page">
         <div class="table-header">
@@ -1778,6 +1869,7 @@ function renderSettingsSignOut(){
 
 function render(page){
   if(page==='dashboard')renderDashboard();
+  else if(page==='documents')renderDocuments();
   else if(page==='leads')renderLeads();
   else if(page==='estimates')renderEstimates();
   else if(page==='jobs')renderJobs();
@@ -2349,6 +2441,244 @@ function triggerPushForRecord(type, record){
   } else if(type === 'followups'){
     sendLocalNotification('🔔 Follow-Up Due', `${record.name||'Contact'} — ${record.reason||'Follow up'}`, '/app.html');
   }
+}
+
+// ── DOCUMENTS TAB ────────────────────────────────────────────────────────────
+let currentDocType = 'quote';
+
+const DOC_TYPES = {
+  quote: {
+    icon: '📋',
+    title: 'Quote / Estimate',
+    desc: 'Professional price estimate for clients. Includes your business info, scope of work, total price, and 30-day validity. No signature required.',
+    numPrefix: 'Q'
+  },
+  contract: {
+    icon: '📝',
+    title: 'Construction Contract',
+    desc: 'Formal agreement with scope of work, two-draw payment schedule, and signature lines for both parties.',
+    numPrefix: 'C'
+  },
+  invoice: {
+    icon: '🧾',
+    title: 'Invoice',
+    desc: 'Payment request with line items, total due, due date, and optional paid-in-full stamp. Includes late fee notice.',
+    numPrefix: 'INV'
+  }
+};
+
+function selectDocType(type, btn){
+  currentDocType = type;
+  document.querySelectorAll('.doc-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const t = DOC_TYPES[type];
+  document.getElementById('doc-preview-icon').textContent = t.icon;
+  document.getElementById('doc-preview-title').textContent = t.title;
+  document.getElementById('doc-preview-desc').textContent = t.desc;
+
+  // Show/hide fields
+  document.getElementById('doc-amount-group').style.display = type !== 'contract' ? '' : 'none';
+  document.getElementById('doc-draw1-group').style.display = type === 'contract' ? '' : 'none';
+  document.getElementById('doc-draw2-group').style.display = type === 'contract' ? '' : 'none';
+  document.getElementById('doc-due-group').style.display = type === 'invoice' ? '' : 'none';
+  document.getElementById('doc-paid-group').style.display = type === 'invoice' ? '' : 'none';
+
+  // Auto-generate doc number
+  const now = new Date();
+  const num = `${t.numPrefix}-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  document.getElementById('doc-number').value = num;
+}
+
+function initDocumentsPage(){
+  // Set today's date
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('doc-date').value = today;
+
+  // Set due date 30 days out
+  const due = new Date(Date.now() + 30*86400000).toISOString().split('T')[0];
+  document.getElementById('doc-due').value = due;
+
+  // Populate client autocomplete from leads + clients
+  const names = [...new Set([
+    ...db.leads.map(l => `${l.firstName||''} ${l.lastName||''}`.trim()),
+    ...db.clients.map(c => c.name)
+  ].filter(n => n))];
+  const datalist = document.getElementById('doc-client-list');
+  datalist.innerHTML = names.map(n => `<option value="${n}">`).join('');
+}
+
+function generateDocument(){
+  const biz = db.settings?.businessName || 'Your Business';
+  const bizPhone = Object.values(db.settings?.teamMemberPhones || {})[0] || '';
+  const bizAddr = ''; // Could add to settings later
+  const client = document.getElementById('doc-client').value.trim();
+  const clientAddr = document.getElementById('doc-address').value.trim();
+  const clientPhone = document.getElementById('doc-phone').value.trim();
+  const desc = document.getElementById('doc-description').value.trim();
+  const amount = document.getElementById('doc-amount').value;
+  const docDate = document.getElementById('doc-date').value;
+  const docNum = document.getElementById('doc-number').value;
+
+  if(!client){ showToast('⚠️ Please enter a client name'); return; }
+  if(!desc){ showToast('⚠️ Please enter a project description'); return; }
+
+  const formatted = new Intl.NumberFormat('en-US', {style:'currency', currency:'USD'}).format;
+  const fmtDate = (d) => d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '';
+
+  let html = '';
+
+  // ── SHARED HEADER ───────────────────────────────────────────────────────────
+  const headerCSS = `*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Helvetica Neue',Arial,sans-serif;background:#f0f0f0;padding:32px 16px;color:#111;}
+.page{background:#fff;max-width:720px;margin:0 auto;border-radius:6px;padding:40px 48px;box-shadow:0 2px 16px rgba(0,0,0,.1);}
+.header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:24px;border-bottom:1px solid #ddd;margin-bottom:24px;}
+.biz-name{font-size:1.6rem;font-weight:800;margin-bottom:4px;}
+.biz-detail{font-size:0.82rem;color:#555;line-height:1.7;}
+.doc-label{text-align:right;}.doc-label h2{font-size:2rem;font-weight:300;letter-spacing:6px;text-transform:uppercase;}
+.doc-num{font-size:0.85rem;color:#555;margin-top:4px;}
+.meta{display:flex;justify-content:space-between;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #eee;}
+.meta-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:2px;color:#999;margin-bottom:5px;}
+.bill-name{font-size:0.95rem;font-weight:700;margin-bottom:3px;}
+.bill-detail{font-size:0.85rem;color:#444;line-height:1.5;}
+.dr{display:flex;justify-content:flex-end;gap:16px;margin-bottom:4px;font-size:0.85rem;}
+.dr span{color:#666;}.dr strong{color:#111;font-weight:700;}
+.proj{border-left:3px solid #111;padding:8px 14px;margin-bottom:20px;background:#fafafa;}
+.proj-lbl{font-size:0.62rem;text-transform:uppercase;letter-spacing:2px;color:#999;margin-bottom:3px;}
+.proj-val{font-size:0.92rem;font-weight:600;}
+table{width:100%;border-collapse:collapse;margin-bottom:16px;}
+thead tr{background:#f0f0f0;}
+th{padding:10px 14px;text-align:left;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:#555;font-weight:600;}
+th:last-child{text-align:right;}
+tbody td{padding:12px 14px;border-bottom:1px solid #f0f0f0;font-size:0.88rem;}
+tbody td:last-child{text-align:right;font-weight:600;}
+.totals{display:flex;justify-content:flex-end;margin-bottom:20px;}
+.ti{min-width:260px;}.tr{display:flex;justify-content:space-between;padding:6px 0;font-size:0.88rem;color:#555;}
+.tr.fin{border-top:2px solid #111;margin-top:8px;padding-top:10px;font-size:1.05rem;font-weight:800;color:#111;}
+.foot{display:flex;gap:40px;padding-top:16px;border-top:1px solid #eee;font-size:0.8rem;margin-top:16px;}
+.fl{font-size:0.62rem;text-transform:uppercase;letter-spacing:2px;color:#999;margin-bottom:4px;}
+.fv{color:#444;line-height:1.6;}.fv strong{color:#111;}
+.note{background:#fffdf0;border:1px solid #ffe58a;border-radius:6px;padding:10px 14px;margin-top:12px;font-size:0.78rem;color:#7a5c00;}
+.late{background:#fff5f5;border:1px solid #ffd0d0;border-radius:6px;padding:10px 14px;margin-top:12px;font-size:0.75rem;color:#c0392b;}
+.paid{background:#f0fff4;border:1.5px solid #4ADE80;border-radius:8px;padding:12px 20px;text-align:center;color:#166534;font-weight:700;font-size:0.9rem;margin-bottom:16px;}
+.sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:40px;padding-top:24px;border-top:1px solid #ddd;}
+.sig-line{border-bottom:1px solid #111;height:44px;margin-bottom:8px;}
+.sig-lbl{font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#888;}
+.sig-name{font-size:0.82rem;font-weight:700;margin-top:3px;}
+@page{margin:0.5in;}@media print{body{background:#fff;padding:0;}.page{box-shadow:none;}}`;
+
+  const sharedHeader = `<div class="header">
+    <div>
+      <div class="biz-name">${biz}</div>
+      ${bizPhone ? `<div class="biz-detail">${bizPhone}</div>` : ''}
+    </div>
+    <div class="doc-label">
+      <h2>${currentDocType === 'quote' ? 'Quote' : currentDocType === 'contract' ? 'Contract' : 'Invoice'}</h2>
+      <div class="doc-num">#${docNum}</div>
+    </div>
+  </div>
+  <div class="meta">
+    <div>
+      <div class="meta-label">Bill To</div>
+      <div class="bill-name">${client}</div>
+      ${clientAddr ? `<div class="bill-detail">${clientAddr}</div>` : ''}
+      ${clientPhone ? `<div class="bill-detail">${clientPhone}</div>` : ''}
+    </div>
+    <div>
+      <div class="meta-label">Date</div>
+      <div class="dr"><span>Date:</span><strong>${fmtDate(docDate)}</strong></div>`;
+
+  if(currentDocType === 'quote'){
+    const expDate = new Date(new Date(docDate+'T12:00:00').getTime() + 30*86400000).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+    const amt = parseFloat(amount) || 0;
+
+    html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${currentDocType} — ${biz}</title>
+    <style>${headerCSS}</style></head><body><div class="page">
+    ${sharedHeader}
+      <div class="dr"><span>Valid Until:</span><strong>${expDate}</strong></div>
+    </div></div>
+    <div class="proj"><div class="proj-lbl">Project</div><div class="proj-val">${desc}</div></div>
+    <table><thead><tr><th>Description</th><th>Amount</th></tr></thead>
+    <tbody><tr><td>${desc}</td><td>${formatted(amt)}</td></tr></tbody></table>
+    <div class="totals"><div class="ti">
+      <div class="tr"><span>Subtotal</span><span>${formatted(amt)}</span></div>
+      <div class="tr fin"><span>Total Estimate</span><span>${formatted(amt)}</span></div>
+      <div style="font-size:0.73rem;color:#888;text-align:right;margin-top:6px;font-style:italic;">*Estimated price — may vary based on final site conditions.</div>
+    </div></div>
+    <div class="note">This quote is valid for 30 days. Any changes to scope may result in additional charges. Work commences upon signed agreement and deposit receipt.</div>
+    <div class="foot">
+      <div><div class="fl">Questions?</div><div class="fv"><strong>${biz}</strong>${bizPhone?'<br>'+bizPhone:''}</div></div>
+    </div>
+    </div></body></html>`;
+
+  } else if(currentDocType === 'contract'){
+    const draw1 = parseFloat(document.getElementById('doc-draw1').value) || 0;
+    const draw2 = parseFloat(document.getElementById('doc-draw2').value) || 0;
+    const total = draw1 + draw2;
+
+    html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Contract — ${biz}</title>
+    <style>${headerCSS}</style></head><body><div class="page">
+    ${sharedHeader}
+      <div class="dr"><span>Payment:</span><strong>Cash / Check</strong></div>
+    </div></div>
+    <div class="proj"><div class="proj-lbl">Project / Scope of Work</div><div class="proj-val">${desc}</div></div>
+    <table><thead><tr><th>Draw</th><th>Description</th><th>Amount</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Draw 1</strong></td><td>Due at signing / project commencement</td><td>${formatted(draw1)}</td></tr>
+      <tr><td><strong>Draw 2</strong></td><td>Due upon substantial completion</td><td>${formatted(draw2)}</td></tr>
+    </tbody></table>
+    <div class="totals"><div class="ti">
+      <div class="tr"><span>Subtotal</span><span>${formatted(total)}</span></div>
+      <div class="tr fin"><span>Total Contract Amount</span><span>${formatted(total)}</span></div>
+    </div></div>
+    <div style="font-size:0.85rem;line-height:1.8;color:#333;margin-bottom:16px;">
+      <strong>Terms:</strong> Work commences upon receipt of Draw 1. No completion date is guaranteed. Changes to scope must be agreed in writing. A late payment fee of 1.5% per day applies after 15 days past due.
+    </div>
+    <div class="sig-grid">
+      <div><div class="sig-line"></div><div class="sig-lbl">Contractor Signature</div><div class="sig-name">${biz}</div></div>
+      <div><div class="sig-line"></div><div class="sig-lbl">Client Signature</div><div class="sig-name">${client}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:20px;">
+      <div><div class="sig-line" style="width:160px;"></div><div class="sig-lbl">Date</div></div>
+      <div><div class="sig-line" style="width:160px;"></div><div class="sig-lbl">Date</div></div>
+    </div>
+    </div></body></html>`;
+
+  } else if(currentDocType === 'invoice'){
+    const amt = parseFloat(amount) || 0;
+    const dueDate = document.getElementById('doc-due').value;
+    const paid = document.getElementById('doc-paid').value;
+
+    html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Invoice — ${biz}</title>
+    <style>${headerCSS}</style></head><body><div class="page">
+    ${sharedHeader}
+      <div class="dr"><span>Due Date:</span><strong>${fmtDate(dueDate)}</strong></div>
+      <div class="dr"><span>Payment:</span><strong>Cash / Check</strong></div>
+    </div></div>
+    <div class="proj"><div class="proj-lbl">Project</div><div class="proj-val">${desc}</div></div>
+    ${paid ? `<div class="paid">✅ ${paid === 'cash' ? 'CASH' : 'CHECK'} PAID IN FULL — ${fmtDate(docDate)}</div>` : ''}
+    <table><thead><tr><th>Description</th><th>Amount</th></tr></thead>
+    <tbody><tr><td>${desc}</td><td>${formatted(amt)}</td></tr></tbody></table>
+    <div class="totals"><div class="ti">
+      <div class="tr"><span>Subtotal</span><span>${formatted(amt)}</span></div>
+      <div class="tr fin"><span>Total Due</span><span>${formatted(amt)}</span></div>
+    </div></div>
+    <div class="foot">
+      <div><div class="fl">Payment Method</div><div class="fv">Cash or check payable to:<br><strong>${biz}</strong></div></div>
+      ${bizPhone ? `<div><div class="fl">Questions?</div><div class="fv">${bizPhone}</div></div>` : ''}
+    </div>
+    ${!paid ? `<div class="late">⚠️ <strong>Late Payment Notice:</strong> A penalty of 1.5% per day will be applied to any balance remaining after ${fmtDate(dueDate)}.</div>` : ''}
+    </div></body></html>`;
+  }
+
+  // Open in new window for printing
+  const blob = new Blob([html], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
+
+function renderDocuments(){
+  initDocumentsPage();
 }
 
 // ── ACTIVITY CHART ───────────────────────────────────────────────────────────
