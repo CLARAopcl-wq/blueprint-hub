@@ -1603,13 +1603,13 @@ function renderSettings(){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
       <div>
         <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:6px;">Business Name *</label>
-        <input type="text" placeholder="e.g. Skytta Construction" value="${s.businessName||''}"
+        <input type="text" placeholder="Blueprint Contractor" value="${s.businessName||''}"
           onchange="db.settings.businessName=this.value;save();"
           style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;color:var(--text);outline:none;"/>
       </div>
       <div>
         <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:6px;">Owner / Contact Name</label>
-        <input type="text" placeholder="e.g. Caymin Skytta" value="${s.ownerName||''}"
+        <input type="text" placeholder="Joe Smith" value="${s.ownerName||''}"
           onchange="db.settings.ownerName=this.value;save();"
           style="width:100%;padding:10px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;color:var(--text);outline:none;"/>
       </div>
