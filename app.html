@@ -1815,48 +1815,71 @@ const AUTOMATION_URL = 'https://blueprint-hub-production.up.railway.app';
 const STRIPE_PUB_KEY = 'pk_test_51TgF16Q0wV9of21BF994UTNjE7x5bjyDlXSIyFnEKwxB2G9qV274XADEEtBfUpGq7iu9ip5WNLxW3Z3zSsstgy2300PSLRhgTE';
 
 const PLANS_UI = [
-  { id:'starter', name:'Starter', price:49, color:'#5B8DEF', features:['Leads, Jobs, Invoices','AI Quick Entry','Import & Export','Google Calendar Sync','Email support'] },
-  { id:'pro', name:'Pro', price:149, color:'#F5A623', badge:'Most Popular', features:['Everything in Starter','AI Receptionist (SMS)','6 Automated Follow-ups','AI Weekly Insights','Kanban Board','Priority support'] },
-  { id:'agency', name:'Agency', price:297, color:'#4CAF7D', features:['Everything in Pro','Done-for-you setup','Monthly check-in call','White-label ready','Dedicated support'] }
+  { id:'free', name:'Free', price:0, credits:20, color:'#8B95A8', features:['Leads, Jobs, Invoices','Basic dashboard','Import & Export','20 AI credits/month','Community support'] },
+  { id:'starter', name:'Starter', price:29, credits:200, color:'#5B8DEF', features:['Everything in Free','AI Quick Entry','Document Generator','Google Calendar Sync','200 AI credits/month','Email support'] },
+  { id:'pro', name:'Pro', price:79, credits:600, color:'#F5A623', badge:'Most Popular', features:['Everything in Starter','AI Receptionist (SMS)','AI Weekly Insights','AI Invoice Generator','Kanban Board','600 AI credits/month','Priority support'] },
+  { id:'agency', name:'Agency', price:197, credits:3000, color:'#4CAF7D', features:['Everything in Pro','3,000 AI credits/month','White-label ready','Dedicated support','Top-up credits available'] }
 ];
 
 function renderSubscriptionSection(){
   const el = document.getElementById('subscription-section');
   if(!el) return;
   const sub = db.subscription || {};
-  const currentPlan = sub.plan || null;
-  const status = sub.status || null;
-  const isTrialing = status === 'trialing';
-  const isActive = status === 'active' || isTrialing;
+  const currentPlan = sub.plan || 'free';
+  const status = sub.status || 'free';
+  const credits = sub.credits ?? (currentPlan === 'free' ? 20 : currentPlan === 'starter' ? 200 : currentPlan === 'pro' ? 600 : 3000);
+  const maxCredits = currentPlan === 'free' ? 20 : currentPlan === 'starter' ? 200 : currentPlan === 'pro' ? 600 : 3000;
+  const creditPct = Math.round((credits / maxCredits) * 100);
+  const creditColor = creditPct > 50 ? '#4ADE80' : creditPct > 20 ? '#F59E0B' : '#E05252';
+  const isActive = status === 'active' || status === 'trialing' || status === 'free';
+  const planName = PLANS_UI.find(p => p.id === currentPlan)?.name || 'Free';
 
   el.innerHTML = `
     <div style="padding:28px 0 8px;border-top:1px solid var(--border);margin-top:8px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-        <div>
-          <div style="font-weight:700;font-size:0.95rem;">Blueprint Hub Subscription</div>
-          <div style="font-size:0.78rem;color:var(--muted);margin-top:3px;">
-            ${isTrialing ? '🎉 Free trial active' : isActive ? `✅ ${currentPlan ? currentPlan.charAt(0).toUpperCase()+currentPlan.slice(1) : ''} Plan — Active` : '⭐ 14-day free trial on any plan'}
+      
+      <!-- Credit Balance Card -->
+      <div style="background:var(--dark3);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div>
+            <div style="font-weight:700;font-size:0.95rem;">⚡ AI Credits</div>
+            <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">${planName} Plan — resets monthly</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:1.4rem;font-weight:800;color:${creditColor};">${credits}</div>
+            <div style="font-size:0.72rem;color:var(--muted);">of ${maxCredits} remaining</div>
           </div>
         </div>
+        <div style="background:var(--dark2);border-radius:20px;height:8px;overflow:hidden;">
+          <div style="background:${creditColor};height:100%;width:${creditPct}%;border-radius:20px;transition:width 0.5s;"></div>
+        </div>
+        <div style="margin-top:10px;font-size:0.72rem;color:var(--muted);">
+          Quick Entry: 2cr &nbsp;·&nbsp; Documents: 5cr &nbsp;·&nbsp; AI Insights: 10cr &nbsp;·&nbsp; Invoice AI: 5cr
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+
+      <!-- Plan Cards -->
+      <div style="font-weight:700;font-size:0.88rem;margin-bottom:12px;">Upgrade Your Plan</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
         ${PLANS_UI.map(p => `
-          <div style="background:${currentPlan===p.id?'rgba(245,166,35,0.08)':' var(--dark3)'};border:1.5px solid ${currentPlan===p.id?'var(--yellow)':'var(--border)'};border-radius:12px;padding:20px;position:relative;">
-            ${p.badge ? `<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--yellow);color:#000;font-size:0.65rem;font-weight:800;padding:3px 12px;border-radius:20px;white-space:nowrap;">${p.badge}</div>` : ''}
-            <div style="font-size:0.72rem;font-weight:700;color:${p.color};text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">${p.name}</div>
-            <div style="font-size:1.6rem;font-weight:800;margin-bottom:12px;">$${p.price}<span style="font-size:0.75rem;color:var(--muted);font-weight:400;">/mo</span></div>
-            <ul style="list-style:none;display:flex;flex-direction:column;gap:5px;margin-bottom:16px;">
-              ${p.features.map(f=>`<li style="font-size:0.75rem;color:var(--muted);display:flex;align-items:center;gap:6px;"><span style="color:${p.color};">✓</span>${f}</li>`).join('')}
+          <div style="background:${currentPlan===p.id?'rgba(245,166,35,0.08)':'var(--dark3)'};border:1.5px solid ${currentPlan===p.id?'var(--yellow)':'var(--border)'};border-radius:12px;padding:16px;position:relative;">
+            ${p.badge ? `<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--yellow);color:#000;font-size:0.62rem;font-weight:800;padding:3px 10px;border-radius:20px;white-space:nowrap;">${p.badge}</div>` : ''}
+            <div style="font-size:0.7rem;font-weight:700;color:${p.color};text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">${p.name}</div>
+            <div style="font-size:1.3rem;font-weight:800;margin-bottom:4px;">${p.price === 0 ? 'Free' : '$'+p.price}<span style="font-size:0.72rem;color:var(--muted);font-weight:400;">${p.price > 0 ? '/mo' : ''}</span></div>
+            <div style="font-size:0.72rem;color:${p.color};font-weight:600;margin-bottom:10px;">⚡ ${p.credits.toLocaleString()} credits/mo</div>
+            <ul style="list-style:none;display:flex;flex-direction:column;gap:4px;margin-bottom:14px;">
+              ${p.features.map(f=>`<li style="font-size:0.72rem;color:var(--muted);display:flex;align-items:flex-start;gap:5px;"><span style="color:${p.color};flex-shrink:0;">✓</span>${f}</li>`).join('')}
             </ul>
             ${currentPlan===p.id
-              ? `<div style="text-align:center;font-size:0.75rem;color:var(--yellow);font-weight:600;">Current Plan</div>`
-              : `<button onclick="startCheckout('${p.id}')" style="width:100%;background:${p.color};border:none;color:${p.id==='pro'?'#000':'#fff'};padding:10px;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;">
-                  ${isActive ? 'Switch Plan' : 'Start Free Trial'}
-                </button>`
+              ? `<div style="text-align:center;font-size:0.72rem;color:var(--yellow);font-weight:700;padding:8px;background:rgba(245,166,35,0.1);border-radius:6px;">✅ Current Plan</div>`
+              : p.id === 'free'
+                ? `<div style="text-align:center;font-size:0.72rem;color:var(--muted);">Sign up free</div>`
+                : `<button onclick="startCheckout('${p.id}')" style="width:100%;background:${p.color};border:none;color:${p.id==='pro'||p.id==='starter'?'#000':'#fff'};padding:8px;border-radius:8px;font-weight:700;font-size:0.78rem;cursor:pointer;">
+                    ${p.price === 0 ? 'Get Started Free' : 'Upgrade →'}
+                  </button>`
             }
           </div>`).join('')}
       </div>
-      <div style="margin-top:12px;font-size:0.72rem;color:var(--muted);text-align:center;">14-day free trial · No credit card required to start · Cancel anytime</div>
+      <div style="margin-top:12px;font-size:0.72rem;color:var(--muted);text-align:center;">Cancel anytime · Top-up credits available: 100 credits for $9</div>
     </div>`;
 }
 
@@ -2259,6 +2282,33 @@ function parseQuickEntry(text) {
   return result;
 }
 
+// ── CREDIT SYSTEM ────────────────────────────────────────────────────────────
+const CREDIT_COSTS = { 'quick-entry': 2, 'document': 5, 'insights': 10, 'invoice-ai': 5 };
+
+function getCredits(){
+  const plan = db.subscription?.plan || 'free';
+  const maxCredits = { free: 20, starter: 200, pro: 600, agency: 3000 }[plan] || 20;
+  if(db.subscription?.credits === undefined) db.subscription = { ...(db.subscription||{}), credits: maxCredits };
+  return db.subscription.credits;
+}
+
+function useCredits(feature){
+  const cost = CREDIT_COSTS[feature] || 1;
+  const current = getCredits();
+  if(current < cost){
+    showToast(`⚡ Not enough credits. You need ${cost} credits but have ${current}.`);
+    setTimeout(() => {
+      showPage('settings', null);
+      setTimeout(() => document.getElementById('subscription-section')?.scrollIntoView({behavior:'smooth'}), 300);
+    }, 1000);
+    return false;
+  }
+  db.subscription.credits = current - cost;
+  save();
+  renderSubscriptionSection();
+  return true;
+}
+
 // ── AI INVOICE GENERATOR ─────────────────────────────────────────────────────
 let generatedInvoiceData = null;
 
@@ -2566,6 +2616,7 @@ function generateDocument(){
 
   if(!client){ showToast('⚠️ Please enter a client name'); return; }
   if(!desc){ showToast('⚠️ Please enter a project description'); return; }
+  if(!useCredits('document')) return;
 
   const formatted = new Intl.NumberFormat('en-US', {style:'currency', currency:'USD'}).format;
   const fmtDate = (d) => d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '';
@@ -2934,6 +2985,7 @@ function kanbanDrop(e, newStatus){
 // ── AI WEEKLY INSIGHTS ───────────────────────────────────────────────────────
 async function generateInsights(){
   if(!currentUser) return;
+  if(!useCredits('insights')) return;
 
   // AI Weekly Insights is Pro+ only
   const plan = db.subscription?.plan;
