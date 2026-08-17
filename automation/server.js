@@ -22,6 +22,8 @@ const claude = new Anthropic({ apiKey: ANTHROPIC_KEY });
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
+const TOPUP_PRICE_ID = 'price_1U5HxdQ0wV9of21BA1uq2tAw';
+const TOPUP_CREDITS = 100;
 const PLANS = {
   starter: { priceId: 'price_1U5HbRQ0wV9of21BWvv1njwq', name: 'Starter', amount: 29, credits: 200 },
   pro:     { priceId: 'price_1U5HfbQ0wV9of21B90kgjgW9', name: 'Pro',     amount: 79, credits: 600 },
@@ -447,6 +449,34 @@ app.get('/receptionist-leads', async (req, res) => {
   } catch(e) {
     res.json({ leads: [], active_conversations: Object.keys(conversations).length, error: e.message });
   }
+});
+
+// ── STRIPE CREDIT TOP-UP ──────────────────────────────────────────────────────
+app.post('/buy-credits', async (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  const { userId, email } = req.body;
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      customer_email: email,
+      line_items: [{ price: TOPUP_PRICE_ID, quantity: 1 }],
+      success_url: `https://blueprinthub.llc/app.html?credits=100&userId=${userId}`,
+      cancel_url: `https://blueprinthub.llc/app.html?canceled=true`,
+      metadata: { userId, type: 'topup', credits: 100 }
+    });
+    res.json({ url: session.url });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.options('/buy-credits', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.sendStatus(200);
 });
 
 // ── STRIPE SUBSCRIPTION ───────────────────────────────────────────────────────
