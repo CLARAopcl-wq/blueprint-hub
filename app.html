@@ -1953,6 +1953,8 @@ async function startCheckout(plan){
     db.subscription.credits = current + 100;
     save();
     window.history.replaceState({}, '', window.location.pathname);
+    updateTopbarCredits();
+    renderSubscriptionSection();
     setTimeout(() => showToast('⚡ 100 credits added to your account!'), 1000);
   }
 })();
