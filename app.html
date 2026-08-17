@@ -231,6 +231,7 @@ body{
   /* Topbar tighter */
   .topbar{padding:0 12px;}
   .topbar-logo{font-size:1rem;}
+  .topbar-credit-label{display:none;}
   .topbar-right .username{font-size:0.75rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .btn-logout{padding:5px 10px;font-size:0.75rem;}
   /* Dashboard 2-column grid */
@@ -445,7 +446,14 @@ tr:hover td{background:rgba(255,255,255,0.02);}
       <div class="topbar-logo">Blueprint<span>Hub</span> <span style="color:var(--muted);font-size:0.75rem;font-weight:500;">Operations</span></div>
     </div>
     <div class="topbar-right">
+      <div id="topbar-credits" onclick="showPage('settings',null);setTimeout(()=>document.getElementById('subscription-section')?.scrollIntoView({behavior:'smooth'}),300);"
+        style="display:flex;align-items:center;gap:6px;background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.25);border-radius:20px;padding:5px 12px;cursor:pointer;transition:background 0.2s;"
+        onmouseover="this.style.background='rgba(245,166,35,0.2)'" onmouseout="this.style.background='rgba(245,166,35,0.1)'">
+        <span style="font-size:0.85rem;">⚡</span>
+        <span id="topbar-credit-count" style="font-size:0.8rem;font-weight:700;color:var(--yellow);">—</span>
+        <span class="topbar-credit-label" style="font-size:0.75rem;color:var(--muted);">credits</span>
       </div>
+    </div>
   </div>
   <!-- Sidebar overlay for mobile -->
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
@@ -1223,6 +1231,7 @@ async function onSignedIn(user) {
   hideLoader();
   document.getElementById('app').style.display='flex';
   initPushNotifications();
+  updateTopbarCredits();
   renderAll();
   restoreLastPage();
   updateNavBadges();
@@ -2323,6 +2332,18 @@ function getCredits(){
   return db.subscription.credits;
 }
 
+function updateTopbarCredits(){
+  const credits = getCredits();
+  const el = document.getElementById('topbar-credit-count');
+  if(el) el.textContent = credits;
+  // Color code: green > 50%, yellow > 20%, red otherwise
+  const plan = db.subscription?.plan || 'free';
+  const max = { free:20, starter:200, pro:600, agency:3000 }[plan] || 20;
+  const pct = credits / max;
+  const color = pct > 0.5 ? '#4ADE80' : pct > 0.2 ? '#F5A623' : '#E05252';
+  if(el) el.style.color = color;
+}
+
 function useCredits(feature){
   const cost = CREDIT_COSTS[feature] || 1;
   const current = getCredits();
@@ -2336,6 +2357,7 @@ function useCredits(feature){
   }
   db.subscription.credits = current - cost;
   save();
+  updateTopbarCredits();
   renderSubscriptionSection();
   return true;
 }
