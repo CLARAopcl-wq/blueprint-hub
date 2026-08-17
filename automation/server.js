@@ -23,9 +23,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 const PLANS = {
-  starter: { priceId: 'price_1TgFGCQ0wV9of21BnRULmTvX', name: 'Starter', amount: 49 },
-  pro:     { priceId: 'price_1TgFFEQ0wV9of21BH0BSo0ak', name: 'Pro',     amount: 149 },
-  agency:  { priceId: 'price_1TgFE4Q0wV9of21BEdBGYibu', name: 'Agency',  amount: 297 }
+  starter: { priceId: 'price_1U5HbRQ0wV9of21BWvv1njwq', name: 'Starter', amount: 29, credits: 200 },
+  pro:     { priceId: 'price_1U5HfbQ0wV9of21B90kgjgW9', name: 'Pro',     amount: 79, credits: 600 },
+  agency:  { priceId: 'price_1U5Hp6Q0wV9of21BcdXOQ42V', name: 'Agency',  amount: 197, credits: 3000 }
 };
 
 // In-memory conversation store (backs up to Supabase)
